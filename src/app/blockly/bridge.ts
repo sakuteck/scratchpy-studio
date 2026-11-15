@@ -17,6 +17,8 @@ import { T_INT, T_FLOAT, T_STR, T_BOOL, T_ANY, listOf } from '../../core/lang/as
 import type { NameResolution } from '../../core/lang/typechecker';
 import { BUILTINS } from '../../core/lang/builtins';
 import { printExpr, printStmts } from '../../core/lang/printer';
+import { BlocklyReject, formatBridgeMessage } from './messages';
+import { EN } from '../i18n';
 
 // --- AST ヘルパ -------------------------------------------------------------
 
@@ -64,7 +66,7 @@ function registerUserCallType(defName: string, params: FuncParam[]): string {
       });
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setTooltip(`カスタムブロック「${defName}」を呼び出します`);
+      this.setTooltip(formatBridgeMessage('blockly.customCallTooltip', { p0: defName }, EN ? 'en' : 'ja') ?? defName);
     },
   };
   return type;
@@ -622,15 +624,15 @@ export function workspaceToAst(ws: Blockly.Workspace): Program {
   const tops = ws.getTopBlocks(true);
   for (const b of tops) {
     if (b.type === 'sp_stage') {
-      if (program.stage) throw new Error('ステージは1つだけにしてください');
+      if (program.stage) throw new BlocklyReject('blockly.oneStage');
       program.stage = blockToStage(b);
     } else if (b.type === 'sp_sprite') {
       program.sprites.push(blockToSprite(b));
     } else if (b.type === 'sp_comment') {
-      if (b.getNextBlock()) throw new Error('トップレベルのコメントには他のブロックをつなげられません');
+      if (b.getNextBlock()) throw new BlocklyReject('blockly.commentLinked');
       program.comments.push({ type: 'comment', text: ' ' + (b.getFieldValue('TEXT') ?? '').trim() });
     } else {
-      throw new Error('未接続のブロックをターゲット内につなぐか削除してください');
+      throw new BlocklyReject('blockly.unconnected');
     }
   }
   return program;
@@ -672,7 +674,7 @@ function blockToBodyItem(b: Blockly.Block): BodyItem | null {
     case 'sp_pass':
       return { type: 'pass' };
     case 'sp_unsupported':
-      throw new Error('未対応ブロックはターゲット直下に置けません');
+      throw new BlocklyReject('blockly.unsupportedTopLevel');
     case 'sp_var': {
       const mon = b.getFieldValue('MON') ?? '';
       const decl: VarDecl = {
@@ -735,7 +737,7 @@ function blockToBodyItem(b: Blockly.Block): BodyItem | null {
     });
     case 'sp_on_backdrop': return event(b, { hat: 'backdrop', name: inputExpr(b, 'NAME') });
     default:
-      throw new Error(`「${b.type}」はステージやスプライトの直下には置けません。イベントの中につないでください。`);
+      throw new BlocklyReject('blockly.topLevelBlock', { p0: b.type });
   }
 }
 
@@ -767,7 +769,7 @@ function parseParamsText(text: string): FuncParam[] {
 }
 
 function listLitFromBlock(b: Blockly.Block): Expr[] {
-  if (b.type !== 'lists_create_with') throw new Error('リストの初期値にはリスト作成ブロックを使ってください');
+  if (b.type !== 'lists_create_with') throw new BlocklyReject('blockly.listInitial');
   const items: Expr[] = [];
   let i = 0;
   for (;;) {
@@ -972,7 +974,7 @@ function blockToExpr(b: Blockly.Block): Expr {
       }
       const m = /^spb_(.+)_(\d+)$/.exec(b.type);
       if (m && BUILTINS[m[1]]) return call(m[1], builtinArgs(b, m[1], Number(m[2])));
-      throw new Error(`式ブロック「${b.type}」はコードに変換できません`);
+      throw new BlocklyReject('blockly.expression', { p0: b.type });
     }
   }
 }

@@ -114,6 +114,7 @@ x = 60 + 列×330、y = 60 + 行×430 のグリッドに並べられます(topLe
 | `delete_clone()` | `control_delete_this_clone` | |
 | `ask(q)` | `sensing_askandwait` | QUESTION |
 | `reset_timer()` | `sensing_resettimer` | |
+| `set_drag_mode("draggable")` | `sensing_setdragmode` | fields `DRAG_MODE` に設定値 |
 | `show(v)` / `hide(v)` | `data_showvariable` / `data_hidevariable`(変数のとき)、`data_showlist` / `data_hidelist`(リストのとき) | fields VARIABLE / LIST |
 | `move(n)` 〜 `clear_pen()` | §01 言語仕様書の組み込み関数表の opcode へ 1:1 | |
 
@@ -151,7 +152,9 @@ x = 60 + 列×330、y = 60 + 行×430 のグリッドに並べられます(topLe
 | `letter(i,s)` | `operator_letter_of` | LETTER, STRING |
 | `round/abs/floor/...` | `operator_round` / `operator_mathop`(OPERATOR フィールド) | |
 | `touching(...)` 等のレポータ | §01 の表のとおり | |
-| `timer`, `answer` 等のプロパティ | `sensing_timer`, `sensing_answer`... | |
+| `timer`, `loudness`, `answer`, `tempo` | `sensing_timer`, `sensing_loudness`, `sensing_answer`, `music_getTempo` | `tempo` で music 拡張を登録 |
+| `backdrop_number`, `backdrop_name` | `looks_backdropnumbername` | `NUMBER_NAME` フィールド = number / name |
+| `costume_number`, `costume_name` | `looks_costumenumbername` | `NUMBER_NAME` フィールド = number / name |
 | `Cat.x`(他スプライト) | `sensing_of` | fields PROPERTY=["x position"] + OBJECT メニューシャドウ |
 | `Cat."変数名"`(他スプライトの変数) | `sensing_of` | PROPERTY=[変数名, null] |
 | 変数名 | `data_variable` | fields `VARIABLE: [名前, ID]` |
@@ -224,7 +227,7 @@ def jump(times: int, shout: bool):     →  proccode: "jump %s %b"
 | visible: false | (アノテーションなし = @hide) |
 
 - クラウド変数(`variables` の第 3 要素 true または名前が `☁ ` で始まる)→ `@cloud`(名前の接頭辞は除去)。数値文字列も int/float として読み込み、書き出し時は Scratch 形式の文字列値に戻す。表記の正規化は警告し、非数値・安全に変換できない巨大整数は元の文字列を残して型エラーにする。
-- 変数/リスト以外のモニター(sensing_timer 等の**値モニター**)は変換対象外 → note に記録して無視。
+- Scratch標準の値モニター（タイマー・日時・座標・コスチューム・背景・音量など）と音楽テンポおよび一部の入力なし拡張モニターの表示状態は `timer_visible: true` 等の初期設定に変換。対応キーの一覧は言語仕様 §5.4。モニターの位置・サイズは元のアセット情報とともに保持、レポータの表示形式は標準化され、未対応の拡張モニターは無視 + note。
 
 ---
 
@@ -278,7 +281,7 @@ def jump(times: int, shout: bool):     →  proccode: "jump %s %b"
 | 未対応 opcode(TurboWarp 拡張、procedures_return 等) | `# [変換不可ブロック] opcode=...` コメント + notes + unsupportedOpcodes に計上 |
 | ハットなしの孤立スクリプト | `# [孤立ブロック・実行されません] <文の全文>` コメント化 + note |
 | トップレベルの孤立レポータ | 無視 + note |
-| 値モニター(sensing_timer 等) | 無視 + note |
+| 未対応の拡張値モニター | 無視 + note（標準値モニターと一部の拡張モニターは表示状態を保存） |
 | Scratch の comments(吹き出しメモ) | インポート時コメント化しない(破棄)※実行に影響しないため |
 | 未対応の hat(testpredicate_hat 等) | 孤立スクリプト扱いでコメント化 |
 | ScratchPy のコメント | .sb3 には保存されない(往復で消える) |

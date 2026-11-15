@@ -1,3 +1,4 @@
+import { diag, diagnosticFields, type DiagnosticMessage } from './diagnostics';
 /**
  * ScratchPy パーサ(構文解析器)
  * -----------------------------
@@ -15,10 +16,11 @@ import { Token, tokenize, LexError } from './lexer';
 import { PrimitiveTypeKind } from './ast';
 
 export class ParseError extends Error {
-  line: number; col: number;
-  constructor(message: string, line: number, col: number) {
-    super(message);
-    this.line = line; this.col = col;
+  line: number; col: number; code?: string; params?: import('./diagnostics').DiagnosticParams;
+  constructor(input: string | DiagnosticMessage, line: number, col: number) {
+    const fields = diagnosticFields(input, 'parse');
+    super(fields.message);
+    this.line = line; this.col = col; this.code = fields.code; this.params = fields.params;
   }
 }
 
@@ -51,7 +53,7 @@ export class Parser {
     const t = this.peek();
     if (t.kind !== kind || (value !== undefined && t.value !== value)) {
       throw new ParseError(
-        `'${value ?? kind}' が必要です (実際: ${t.raw || t.kind})`, t.line, t.col);
+        diag("parse.expected", {p0: String(value ?? kind), p1: String(t.raw || t.kind)}), t.line, t.col);
     }
     return this.next();
   }
@@ -77,13 +79,14 @@ export class Parser {
     program.comments.push(...this.skipNewlines());
     while (!this.at('eof')) {
       if (this.atKw('stage')) {
+        if (program.stage) { const t = this.peek(); throw new ParseError(diag("parse.oneStage", {}), t.line, t.col); }
         program.stage = this.parseStage();
       } else if (this.atKw('sprite')) {
         program.sprites.push(this.parseSprite());
       } else {
         const t = this.peek();
         throw new ParseError(
-          `トップレベルには 'stage:' または 'sprite 名前:' しか書けません (実際: ${t.raw || t.kind})`,
+          diag("parse.topLevel", {p0: String(t.raw || t.kind)}),
           t.line, t.col);
       }
       program.comments.push(...this.skipNewlines());
@@ -111,7 +114,7 @@ export class Parser {
     else if (this.at('string')) { name = this.next().value; quoted = true; }
     else {
       const b = this.peek();
-      throw new ParseError(`スプライト名が必要です (実際: ${b.raw || b.kind})`, b.line, b.col);
+      throw new ParseError(b.kind === 'kw' ? diag('parse.keywordSprite', {p0:b.value}) : diag('parse.needSprite', {p0:b.raw || b.kind}), b.line, b.col);
     }
     const sp: SpriteDef = { decl: 'sprite', name, quoted, body: [], loc: this.loc(t) };
     this.expect('punct', ':');
@@ -124,7 +127,7 @@ export class Parser {
     const pre = this.skipNewlines();
     if (!this.at('indent')) {
       const t = this.peek();
-      throw new ParseError('ブロックの開始にはインデントが必要です', t.line, t.col);
+      throw new ParseError(diag("parse.indent", {}), t.line, t.col);
     }
     this.next();
     return pre;
@@ -165,13 +168,13 @@ export class Parser {
         this.skipNewlines();
         return this.parseDef(true);
       }
-      throw new ParseError(`不明なデコレータ @${nameTok.value}`, nameTok.line, nameTok.col);
+      throw new ParseError(diag("parse.decorator", {p0: String(nameTok.value)}), nameTok.line, nameTok.col);
     }
     if (t.kind === 'ident') {
       // config: key: expr
       return this.parseConfigDecl();
     }
-    throw new ParseError(`ここに '${t.raw || t.kind}' は書けません`, t.line, t.col);
+    throw new ParseError(diag("parse.unexpected", {p0: String(t.raw || t.kind)}), t.line, t.col);
   }
 
   private parseConfigDecl(): ConfigDecl {
@@ -188,7 +191,7 @@ export class Parser {
     else if (this.at('string')) { name = this.next().value; quoted = true; }
     else {
       const b = this.peek();
-      throw new ParseError('変数名が必要です', b.line, b.col);
+      throw new ParseError(b.kind === 'kw' ? diag('parse.keywordVar', {p0:b.value}) : diag('parse.needVar'), b.line, b.col);
     }
     this.expect('punct', ':');
     const varType = this.parseType();
@@ -206,7 +209,7 @@ export class Parser {
     else if (this.at('string')) { name = this.next().value; quoted = true; }
     else {
       const b = this.peek();
-      throw new ParseError('リスト名が必要です', b.line, b.col);
+      throw new ParseError(b.kind === 'kw' ? diag('parse.keywordList', {p0:b.value}) : diag('parse.needList'), b.line, b.col);
     }
     this.expect('punct', ':');
     this.expect('kw', 'list');
@@ -224,7 +227,7 @@ export class Parser {
       this.expect('punct', ']');
     } else {
       const b = this.peek();
-      throw new ParseError('リストの初期値は [ ... ] 形式で書いてください', b.line, b.col);
+      throw new ParseError(diag("parse.listInit", {}), b.line, b.col);
     }
     const decl: ListDecl = { decl: 'list', name, quoted, varType: listOf(of), init: items, loc: this.loc(t) };
     this.parseAnnotations(decl);
@@ -235,7 +238,7 @@ export class Parser {
     while (this.at('punct', '@')) {
       this.next();
       const a = this.peek();
-      if (a.kind !== 'ident') throw new ParseError('アノテーション名が必要です', a.line, a.col);
+      if (a.kind !== 'ident') throw new ParseError(diag("parse.annotationName", {}), a.line, a.col);
       this.next();
       const aname = a.value;
       const args: (string | number)[] = [];
@@ -244,41 +247,43 @@ export class Parser {
         if (!this.at('punct', ')')) {
           for (;;) {
             const v = this.peek();
-            if (v.kind === 'number') args.push(parseFloat(v.value));
+            if (v.kind === 'op' && v.value === '-') { this.next(); const n = this.expect('number'); args.push(-parseFloat(n.value)); }
+            else if (v.kind === 'number') args.push(parseFloat(v.value));
             else if (v.kind === 'string') args.push(v.value);
             else if (v.kind === 'ident' || v.kind === 'kw') args.push(v.value);
-            else throw new ParseError('アノテーション引数が不正です', v.line, v.col);
-            this.next();
+            else throw new ParseError(diag("parse.annotationArg", {}), v.line, v.col);
+            if (!(v.kind === 'op' && v.value === '-')) this.next();
             if (this.at('punct', ',')) { this.next(); continue; }
             break;
           }
         }
         this.expect('punct', ')');
       }
-      if (aname === 'show') {
+      if (aname === 'show' || aname === 'hide') {
         if (decl.decl === 'list') {
-          decl.monitor = { mode: 'list', visible: true };
+          if (args.length) throw new ParseError(diag("parse.listAnnotation", {p0: String(aname)}), a.line, a.col);
+          decl.monitor = { mode: 'list', visible: aname === 'show' };
         } else {
           const mode = (args[0] as string) ?? 'default';
           if (!['default', 'large', 'slider'].includes(mode)) {
-            throw new ParseError(`@show の表示モードは default / large / slider のいずれかです (実際: ${mode})`, a.line, a.col);
+            throw new ParseError(diag("parse.annotationMode", {p0: String(aname), p1: String(mode)}), a.line, a.col);
           }
+          if (mode !== 'slider' && args.length > 1) throw new ParseError(diag("parse.annotationExtra", {p0: String(aname), p1: String(mode)}), a.line, a.col);
           if (mode === 'slider') {
+            if (args.length > 4 || (args[1] !== undefined && typeof args[1] !== 'number') || (args[2] !== undefined && typeof args[2] !== 'number')) throw new ParseError(diag("parse.slider", {}), a.line, a.col);
             const min = typeof args[1] === 'number' ? args[1] : 0;
             const max = typeof args[2] === 'number' ? args[2] : 100;
-            decl.monitor = { mode: 'slider', min, max, visible: true };
+            if (args[3] !== undefined && args[3] !== 'true' && args[3] !== 'false') throw new ParseError(diag("parse.sliderBoolean", {}), a.line, a.col);
+            decl.monitor = { mode: 'slider', min, max, isDiscrete: args[3] !== 'false', visible: aname === 'show' };
           } else {
-            decl.monitor = { mode: mode as 'default' | 'large', visible: true };
+            decl.monitor = { mode: mode as 'default' | 'large', visible: aname === 'show' };
           }
         }
-      } else if (aname === 'hide') {
-        if (decl.decl === 'list') decl.monitor = { mode: 'list', visible: false };
-        else decl.monitor = { mode: 'default', visible: false };
       } else if (aname === 'cloud') {
-        if (decl.decl !== 'var') throw new ParseError('@cloud は var にのみ使えます', a.line, a.col);
+        if (decl.decl !== 'var') throw new ParseError(diag("parse.cloud", {}), a.line, a.col);
         decl.cloud = true;
       } else {
-        throw new ParseError(`不明なアノテーション @${aname} (使用可能: @show @hide @cloud)`, a.line, a.col);
+        throw new ParseError(diag("parse.unknownAnnotation", {p0: String(aname)}), a.line, a.col);
       }
     }
   }
@@ -287,8 +292,9 @@ export class Parser {
     const t = this.expect('kw', 'costume');
     const n = this.peek();
     if (n.kind !== 'ident' && n.kind !== 'string' && n.kind !== 'number') {
-      throw new ParseError('コスチューム名が必要です', n.line, n.col);
+      throw new ParseError(n.kind === 'kw' ? diag('parse.keywordCostume', {p0:n.value}) : diag('parse.needCostume'), n.line, n.col);
     }
+    if (!n.value.trim()) throw new ParseError(diag("parse.emptyCostume", {}), n.line, n.col);
     this.next();
     return { decl: 'costume', name: n.value, loc: this.loc(t) };
   }
@@ -297,7 +303,7 @@ export class Parser {
     const t = this.expect('kw', 'sound');
     const n = this.peek();
     if (n.kind !== 'ident' && n.kind !== 'string' && n.kind !== 'number') {
-      throw new ParseError('音の名前が必要です', n.line, n.col);
+      throw new ParseError(diag("parse.soundName", {}), n.line, n.col);
     }
     this.next();
     return { decl: 'sound', name: n.value, loc: this.loc(t) };
@@ -316,20 +322,20 @@ export class Parser {
       this.next();
       return { kind: t.value as PrimitiveTypeKind };
     }
-    throw new ParseError(`型名が必要です (int/float/str/bool/any/list[T]) (実際: ${t.raw || t.kind})`, t.line, t.col);
+    throw new ParseError(diag("parse.typeName", {p0: String(t.raw || t.kind)}), t.line, t.col);
   }
 
   private parseDef(warp: boolean): FuncDef {
     const t = this.expect('kw', 'def');
     const nameTok = this.peek();
-    if (nameTok.kind !== 'ident') throw new ParseError('ブロック(関数)名が必要です', nameTok.line, nameTok.col);
+    if (nameTok.kind !== 'ident') throw new ParseError(diag("parse.blockName", {}), nameTok.line, nameTok.col);
     this.next();
     const params: FuncParam[] = [];
     this.expect('punct', '(');
     if (!this.at('punct', ')')) {
       for (;;) {
         const pn = this.peek();
-        if (pn.kind !== 'ident') throw new ParseError('引数名が必要です', pn.line, pn.col);
+        if (pn.kind !== 'ident') throw new ParseError(pn.kind === 'kw' ? diag('parse.keywordParam', {p0:pn.value}) : diag('parse.needParam'), pn.line, pn.col);
         this.next();
         this.expect('punct', ':');
         const pt = this.parseType();
@@ -354,7 +360,7 @@ export class Parser {
 
   private parseHat(t: Token): Hat {
     const h = this.peek();
-    if (h.kind !== 'kw') throw new ParseError(`'on' の後にイベント種類が必要です (実際: ${h.raw || h.kind})`, h.line, h.col);
+    if (h.kind !== 'kw') throw new ParseError(diag("parse.eventName", {p0: String(h.raw || h.kind)}), h.line, h.col);
     this.next();
     switch (h.value) {
       case 'flag': return { hat: 'flag', loc: this.loc(t) };
@@ -376,14 +382,14 @@ export class Parser {
       case 'loudness': {
         if (!this.atOp('>')) {
           const b = this.peek();
-          throw new ParseError(`'on ${h.value}' の後には '> 値' が必要です`, b.line, b.col);
+          throw new ParseError(diag("parse.eventValue", {p0: String(h.value)}), b.line, b.col);
         }
         this.next();
         const value = this.parseExpr();
         return { hat: 'greaterthan', sensor: h.value, value, loc: this.loc(t) };
       }
       default:
-        throw new ParseError(`不明なイベント '${h.value}' (使用可能: flag/key/click/clone/receive/timer/loudness/backdrop)`, h.line, h.col);
+        throw new ParseError(diag("parse.eventUnknown", {p0: String(h.value)}), h.line, h.col);
     }
   }
 
@@ -441,7 +447,7 @@ export class Parser {
           const what = this.parseExpr();
           this.expect('punct', ')');
           if (what.type !== 'str' || !['all', 'this script', 'other scripts'].includes(what.value)) {
-            throw new ParseError('stop() の引数は "all" / "this script" / "other scripts" のいずれかの文字列です', what.loc?.line ?? t.line, what.loc?.col ?? t.col);
+            throw new ParseError(diag("parse.stop", {}), what.loc?.line ?? t.line, what.loc?.col ?? t.col);
           }
           return { type: 'stop', what: what.value as 'all' | 'this script' | 'other scripts', loc: this.loc(t) };
         }
@@ -461,7 +467,7 @@ export class Parser {
       this.next();
       const value = this.parseExpr();
       if (expr.type !== 'name' && expr.type !== 'varref' && expr.type !== 'index' && expr.type !== 'prop') {
-        throw new ParseError('代入の左辺には変数・リスト要素・プロパティしか書けません', t.line, t.col);
+        throw new ParseError(diag("parse.assignmentTarget", {}), t.line, t.col);
       }
       return { type: 'assign', target: expr as never, value, loc: this.loc(t) };
     }
@@ -469,7 +475,7 @@ export class Parser {
       const op = this.next().value as '+=' | '-=';
       const value = this.parseExpr();
       if (expr.type !== 'name' && expr.type !== 'varref') {
-        throw new ParseError('+= / -= の左辺には変数しか書けません', t.line, t.col);
+        throw new ParseError(diag("parse.augTarget", {}), t.line, t.col);
       }
       return { type: 'augassign', op, target: expr as never, value, loc: this.loc(t) };
     }
@@ -632,7 +638,7 @@ export class Parser {
         // 呼び出し
         if (expr.type !== 'name' && expr.type !== 'prop') {
           const t = this.peek();
-          throw new ParseError('関数呼び出しの形が不正です', t.line, t.col);
+          throw new ParseError(diag("parse.call", {}), t.line, t.col);
         }
         const t = this.next();
         const args: Expr[] = [];
@@ -646,7 +652,7 @@ export class Parser {
             : expr.obj.type === 'listref' ? `list(${JSON.stringify(expr.obj.name)})`
             : expr.obj.type === 'varref' ? `var(${JSON.stringify(expr.obj.name)})`
             : null;
-          if (!objName) throw new ParseError('メソッド呼び出しの対象が不正です', t.line, t.col);
+          if (!objName) throw new ParseError(diag("parse.methodTarget", {}), t.line, t.col);
           expr = {
             type: 'call', callee: `${objName}.${expr.prop}`, args,
             method: { obj: expr.obj, name: expr.prop }, loc: this.loc(t),
@@ -666,8 +672,8 @@ export class Parser {
       if (this.at('punct', '.')) {
         this.next();
         const pn = this.peek();
-        if (pn.kind !== 'ident' && pn.kind !== 'kw') {
-          throw new ParseError("'.' の後にはプロパティ名が必要です", pn.line, pn.col);
+        if (pn.kind !== 'ident' && pn.kind !== 'kw' && pn.kind !== 'string') {
+          throw new ParseError(diag("parse.propertyName", {}), pn.line, pn.col);
         }
         this.next();
         expr = { type: 'prop', obj: expr, prop: pn.value, loc: this.loc(pn) };
@@ -682,7 +688,7 @@ export class Parser {
     const t = this.peek();
     if (t.kind === 'number') {
       this.next();
-      const isFloat = t.value.includes('.');
+      const isFloat = !Number.isInteger(Number(t.value)) || (t.value.includes('.') && !/[eE]/.test(t.value));
       return {
         type: 'num', value: parseFloat(t.value),
         spType: { kind: isFloat ? 'float' : 'int' }, loc: this.loc(t),
@@ -702,14 +708,15 @@ export class Parser {
     if (t.kind === 'kw' && (t.value === 'var' || t.value === 'list') && this.peek(1).kind === 'punct' && this.peek(1).value === '(') {
       this.next(); this.next();
       const n = this.peek();
-      if (n.kind !== 'string') throw new ParseError(`${t.value}("名前") の形では名前は文字列で書いてください`, n.line, n.col);
+      if (n.kind !== 'string') throw new ParseError(diag("parse.quotedName", {p0: String(t.value)}), n.line, n.col);
       this.next();
       this.expect('punct', ')');
       return t.value === 'var'
         ? { type: 'varref', name: n.value, loc: this.loc(t) }
         : { type: 'listref', name: n.value, loc: this.loc(t) };
     }
-    if (t.kind === 'ident') {
+    // These words are event keywords after `on`, but also reporters in expressions.
+    if (t.kind === 'ident' || (t.kind === 'kw' && (t.value === 'timer' || t.value === 'loudness' || (t.value === 'stage' && this.peek(1).kind === 'punct' && this.peek(1).value === '.')))) {
       this.next();
       return { type: 'name', name: t.value, loc: this.loc(t) };
     }
@@ -729,7 +736,8 @@ export class Parser {
       this.expect('punct', ']');
       return { type: 'listlit', items, loc: this.loc(t) };
     }
-    throw new ParseError(`式が必要です (実際: ${t.raw || t.kind})`, t.line, t.col);
+    if (t.kind === 'kw' && t.value === 'stage') throw new ParseError(diag("parse.stageValue", {}), t.line, t.col);
+    throw new ParseError(diag("parse.expression", {p0: String(t.raw || t.kind)}), t.line, t.col);
   }
 }
 
@@ -737,21 +745,35 @@ export class Parser {
 export function parse(src: string): Program {
   const tokens = tokenize(src, true);
   const parser = new Parser(tokens);
-  return parser.parseProgram();
+  try { return parser.parseProgram(); }
+  catch (e) {
+    if (e instanceof RangeError) throw new ParseError(diag("parse.depth", {}), 1, 1);
+    throw e;
+  }
 }
 
 /**
  * パースして診断情報を収集する(例外を投げない)。
  * 最初の構文エラーまでを AST として返しつつ diagnostics にエラーを積む。
  */
+/** 入力上限。同期パースで UI を固まらせないための上限。 */
+export const MAX_TEXT_CHARS = 2 * 1024 * 1024;
+export const MAX_TEXT_LINES = 50000;
+export function textSizeProblem(src: string): Diagnostic | null {
+  const lines = src.length > MAX_TEXT_CHARS ? MAX_TEXT_LINES + 1 : src.split('\n').length;
+  if (src.length <= MAX_TEXT_CHARS && lines <= MAX_TEXT_LINES) return null;
+  return { severity: 'error', ...diagnosticFields(diag('text.tooLarge', { p0: String(MAX_TEXT_LINES), p1: '2 MB' }), 'parse.tooLarge') };
+}
 export function parseCollect(src: string): { program: Program | null; diagnostics: Diagnostic[] } {
   const diagnostics: Diagnostic[] = [];
+  const tooLarge = textSizeProblem(src);
+  if (tooLarge) return { program: null, diagnostics: [tooLarge] };
   let tokens: Token[];
   try {
     tokens = tokenize(src, true);
   } catch (e) {
     if (e instanceof LexError) {
-      diagnostics.push({ severity: 'error', message: e.message, loc: { line: e.line, col: e.col }, code: 'lex' });
+      diagnostics.push({ severity: 'error', message: e.message, loc: { line: e.line, col: e.col }, code: e.code ?? 'lex', params: e.params });
       return { program: null, diagnostics };
     }
     throw e;
@@ -760,8 +782,12 @@ export function parseCollect(src: string): { program: Program | null; diagnostic
     const program = new Parser(tokens).parseProgram();
     return { program, diagnostics };
   } catch (e) {
+    if (e instanceof RangeError) {
+      diagnostics.push({ severity: 'error', ...diagnosticFields(diag('parse.depth'), 'parse') });
+      return { program: null, diagnostics };
+    }
     if (e instanceof ParseError) {
-      diagnostics.push({ severity: 'error', message: e.message, loc: { line: e.line, col: e.col }, code: 'parse' });
+      diagnostics.push({ severity: 'error', message: e.message, loc: { line: e.line, col: e.col }, code: e.code ?? 'parse', params: e.params });
       return { program: null, diagnostics };
     }
     throw e;

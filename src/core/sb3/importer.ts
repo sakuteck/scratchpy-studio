@@ -1,3 +1,6 @@
+import { diag, formatDiagnostic, type DiagnosticMessage } from '../lang/diagnostics';
+import { reporterMonitorForData, ReporterMonitorSpec } from '../lang/monitors';
+import { Sb3ParseError } from './zip';
 /**
  * Scratch 3.0 (.sb3 project.json) → ScratchPy AST インポータ
  * -------------------------------------------------------------
@@ -14,7 +17,7 @@ import {
 } from '../lang/ast';
 import { KEYWORDS } from '../lang/lexer';
 import { printStmts } from '../lang/printer';
-import { SENSING_OF_PROPS } from '../lang/builtins';
+import { SENSING_OF_PROPS, BUILTINS, PROPERTIES } from '../lang/builtins';
 import {
   SB3Project, SB3Target, SB3Block, SB3Monitor, BlockInput, InputValue,
 } from './model';
@@ -25,6 +28,7 @@ export interface ImportResult {
   program: Program;
   assetStore: AssetStore;
   notes: string[];
+  notesEn: string[];
   unsupportedOpcodes: Record<string, number>;
 }
 
@@ -33,6 +37,8 @@ const IDENT_RE = /^[\p{L}\p{Nl}_][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}_]*$/u;
 function isIdent(name: string): boolean {
   return IDENT_RE.test(name) && !KEYWORDS.has(name);
 }
+
+function isDataIdent(name: string): boolean { return isIdent(name) && !BUILTINS[name] && !PROPERTIES[name]; }
 
 function sanitizeIdent(name: string, used: Set<string>): string {
   let s = name.replace(/[^\p{L}\p{Nl}\p{Nd}\p{Pc}_]/gu, '_');
@@ -86,7 +92,10 @@ const PROPERTY_OPCODES: Record<string, string> = {
 };
 
 class Importer {
+  constructor(private language: 'ja' | 'en' = 'ja') {}
   notes: string[] = [];
+  notesEn: string[] = [];
+  private note(d: DiagnosticMessage) { this.notes.push(d.message); this.notesEn.push(formatDiagnostic(d.id, d.params, 'en') ?? d.message); }
   unsupported = new Map<string, number>();
   assetStore: AssetStore = emptyAssetStore();
 
@@ -96,41 +105,33 @@ class Importer {
   listMetaByName = new Map<string, ListMeta>();
   stageName = 'Stage';
   spriteNames = new Set<string>();
-  spriteIdentNames = new Map<string, string>(); // 元の名前 → 識別子名
   /** procedure: `${target}\u0000${proccode}` → FuncDef 情報 */
   procNames = new Map<string, string>();
   /** 引数名のリネーム: `${target}\u0000${rawName}` → identifier */
   paramRenames = new Map<string, string>();
 
   private files: Map<string, Uint8Array> = new Map();
+  private substackDepth = 0;
 
   importProject(project: SB3Project, files?: Map<string, Uint8Array>): ImportResult {
     if (files) this.files = files;
     if (!project || !Array.isArray(project.targets) || project.targets.length === 0) {
-      throw new Error('project.json が不正です (targets がありません)');
+      throw new Sb3ParseError(diag('import.needTargets'));
     }
     const stage = project.targets.find(t => t.isStage);
-    if (!stage) throw new Error('project.json にステージがありません');
+    if (!stage) throw new Sb3ParseError(diag('import.needStage'));
+    if (project.targets.filter(t => t.isStage).length !== 1) throw new Sb3ParseError(diag('import.oneStage'));
+    const targetNames = new Set<string>();
+    for (const t of project.targets) {
+      if (!t.name || targetNames.has(t.name)) throw new Sb3ParseError(diag('import.duplicateNames', {p0:t.name}));
+      targetNames.add(t.name);
+    }
     this.stageName = stage.name || 'Stage';
+    this.assetStore.extensions = Array.isArray(project.extensions) ? [...project.extensions] : [];
+    this.assetStore.monitorLayouts = (project.monitors ?? []).map(m => ({ opcode: m.opcode, spriteName: m.spriteName, params: {...m.params}, x: m.x, y: m.y, width: m.width, height: m.height }));
 
-    // スプライト名の識別子化
-    const usedNames = new Set<string>([this.stageName]);
-    for (const t of project.targets) {
-      if (t.isStage) continue;
-      this.spriteNames.add(t.name);
-      if (isIdent(t.name)) {
-        this.spriteIdentNames.set(t.name, t.name);
-        usedNames.add(t.name);
-      }
-    }
-    for (const t of project.targets) {
-      if (t.isStage) continue;
-      if (!this.spriteIdentNames.has(t.name)) {
-        const id = sanitizeIdent(t.name, usedNames);
-        this.spriteIdentNames.set(t.name, id);
-        this.notes.push(`スプライト名「${t.name}」を識別子「${id}」に変換しました(プロパティ参照を可能にするため)`);
-      }
-    }
+    // Keep actual Scratch target names. Quoted property references support non-identifiers.
+    for (const t of project.targets) if (!t.isStage) this.spriteNames.add(t.name);
 
     this.collectVarListMeta(project);
     this.analyzeVariableUsage(project);
@@ -145,16 +146,16 @@ class Importer {
     // 未対応拡張の記録
     for (const ext of project.extensions ?? []) {
       if (ext !== 'pen' && ext !== 'music') {
-        this.notes.push(`拡張機能「${ext}」のブロックはコメントとして保持されます(実行コードには変換されません)`);
+        this.note(diag('note.extension', {p0: String(ext)}));
       }
     }
 
     const unsupportedOpcodes: Record<string, number> = {};
     for (const [op, n] of this.unsupported) unsupportedOpcodes[op] = n;
     if (this.unsupported.size) {
-      this.notes.push(`未対応ブロック: ${[...this.unsupported.entries()].map(([op, n]) => `${op}×${n}`).join(', ')} → コメント行に変換されました(再エクスポート時には失われます)`);
+      this.note(diag('note.unsupported', {p0: String([...this.unsupported.entries()].map(([op, n]) => `${op}×${n}`).join(', '))}));
     }
-    return { program, assetStore: this.assetStore, notes: this.notes, unsupportedOpcodes };
+    return { program, assetStore: this.assetStore, notes: this.notes, notesEn: this.notesEn, unsupportedOpcodes };
   }
 
   // --- メタ収集 --------------------------------------------------------------
@@ -231,6 +232,61 @@ class Importer {
         }
       }
     }
+
+    // .sb3 stores numbers without static type annotations. An integer initial
+    // value does not mean a variable stays integer: a later assignment may
+    // read the timer or another fractional reporter. Propagate float usage
+    // through arithmetic and variable references until it reaches a fixed point.
+    const floatReporterOps = new Set([
+      'sensing_timer', 'sensing_loudness', 'sensing_mousex', 'sensing_mousey',
+      'sensing_dayssince2000', 'sensing_distanceto', 'sensing_current',
+      'motion_xposition', 'motion_yposition', 'motion_direction', 'looks_size',
+      'sound_volume', 'music_getTempo', 'operator_divide',
+    ]);
+    const maybeFloat = (input: BlockInput | undefined, target: SB3Target, seen = new Set<string>()): boolean => {
+      const v = input?.[1];
+      if (Array.isArray(v)) {
+        if (v[0] === 12) return this.varMeta.get(String(v[2]))?.hasDecimal ?? false;
+        if ([4, 5, 6, 7, 8].includes(v[0] as number)) {
+          const n = Number(v[1]); return Number.isFinite(n) && !Number.isInteger(n);
+        }
+        return false;
+      }
+      if (typeof v !== 'string' || seen.has(v)) return false;
+      seen.add(v);
+      const reporter = target.blocks?.[v];
+      if (!reporter) return false;
+      if (floatReporterOps.has(reporter.opcode)) return true;
+      if (reporter.opcode === 'sensing_of') {
+        const prop = String(reporter.fields?.PROPERTY?.[0] ?? '');
+        if (['x position', 'y position', 'direction', 'size', 'volume'].includes(prop)) return true;
+        const menuId = reporter.inputs?.OBJECT?.[1];
+        const obj = typeof menuId === 'string' ? String(target.blocks?.[menuId]?.fields?.OBJECT?.[0] ?? '') : '';
+        const owner = obj === '_stage_' ? this.stageName : obj;
+        return this.varMetaByName.get(`${owner}\u0000${prop}`)?.hasDecimal ?? this.varMetaByName.get(`${this.stageName}\u0000${prop}`)?.hasDecimal ?? false;
+      }
+      if (reporter.opcode === 'operator_mathop' && String(reporter.fields?.OPERATOR?.[0]) !== 'abs') return true;
+      if (['operator_add','operator_subtract','operator_multiply','operator_mod','operator_random','operator_mathop'].includes(reporter.opcode)) {
+        return Object.values(reporter.inputs ?? {}).some(i => maybeFloat(i, target, new Set(seen)));
+      }
+      if (reporter.opcode === 'data_itemoflist') {
+        const id = String(reporter.fields?.LIST?.[1] ?? '');
+        return this.listMeta.get(id)?.elemType.kind === 'float';
+      }
+      return false;
+    };
+    let changed: boolean;
+    do {
+      changed = false;
+      for (const target of project.targets) for (const b of Object.values(target.blocks ?? {})) {
+        if (!['data_setvariableto', 'data_changevariableby'].includes(b.opcode) || !b.fields?.VARIABLE) continue;
+        const meta = this.varMeta.get(String(b.fields.VARIABLE[1] ?? '')) ?? this.findVarAnywhere(String(b.fields.VARIABLE[0] ?? ''));
+        const input = b.inputs?.VALUE;
+        if (meta && !meta.hasDecimal && maybeFloat(input, target)) {
+          meta.numeric = true; meta.hasDecimal = true; changed = true;
+        }
+      }
+    } while (changed);
   }
 
   private findVarAnywhere(name: string): VarMeta | undefined {
@@ -251,19 +307,34 @@ class Importer {
     this.monitorByVarId = new Map();
     this.monitorByListId = new Map();
     const ignoredMonitorOpcodes = new Set<string>();
+    this.reporterMonitors = [];
     for (const m of project.monitors ?? []) {
       if (m.opcode === 'data_variable' && this.varMeta.has(m.id)) {
         this.monitorByVarId.set(m.id, m);
       } else if (m.opcode === 'data_listcontents' && this.listMeta.has(m.id)) {
         this.monitorByListId.set(m.id, m);
       } else {
-        ignoredMonitorOpcodes.add(m.opcode);
+        const spec = reporterMonitorForData(m.opcode, m.params ?? {});
+        const owner = m.spriteName ? project.targets.find(t => t.name === m.spriteName) : project.targets.find(t => t.isStage);
+        const stageGlobal = spec?.scope === 'stage';
+        if (!spec || (!stageGlobal && (!owner || (spec.scope === 'sprite' && owner.isStage)))) {
+          ignoredMonitorOpcodes.add(m.opcode);
+          continue;
+        }
+        const target = stageGlobal ? project.targets.find(t => t.isStage)! : owner!;
+        if (this.reporterMonitors.some(x => x.target === target.name && x.spec.key === spec.key)) {
+          this.note(diag('note.monitorDuplicate', {p0: String(spec.key)}));
+          continue;
+        }
+        this.reporterMonitors.push({target:target.name, spec, visible:m.visible === true});
+        if (m.mode !== 'default') this.note(diag('note.monitorMode', {p0: String(spec.key)}));
       }
     }
     if (ignoredMonitorOpcodes.size) {
-      this.notes.push(`値モニター(${[...ignoredMonitorOpcodes].join(', ')})は変換対象外のため無視しました`);
+      this.note(diag('note.monitorIgnored', {p0: String([...ignoredMonitorOpcodes].join(', '))}));
     }
   }
+  reporterMonitors: {target:string; spec:ReporterMonitorSpec; visible:boolean}[] = [];
   monitorByVarId = new Map<string, SB3Monitor>();
   monitorByListId = new Map<string, SB3Monitor>();
 
@@ -310,7 +381,7 @@ class Importer {
   }
 
   private importSprite(t: SB3Target, index: number): SpriteDef {
-    const ident = this.spriteIdentNames.get(t.name) ?? t.name;
+    const ident = t.name;
     const body: BodyItem[] = [];
     const sp: SpriteDef = {
       decl: 'sprite',
@@ -327,6 +398,7 @@ class Importer {
 
   private pushConfigs(body: BodyItem[], t: SB3Target, isStage: boolean, expectedOrder = 0): void {
     const cfg = (key: string, value: Expr): void => { body.push({ decl: 'config', key, value } as ConfigDecl); };
+    for (const m of this.reporterMonitors) if (m.target === t.name) cfg(m.spec.key, bool(m.visible));
     if (isStage) {
       if (t.tempo !== undefined && t.tempo !== 60) cfg('tempo', num(t.tempo));
       if (t.videoState !== undefined && t.videoState !== 'on') cfg('video_state', str(t.videoState));
@@ -335,8 +407,9 @@ class Importer {
       if (t.currentCostume !== 0) cfg('current_costume', num(t.currentCostume));
       if (t.textToSpeechLanguage) cfg('tts_language', str(t.textToSpeechLanguage));
     } else {
-      if (t.x !== 0) cfg('x', num(t.x!));
-      if (t.y !== 0) cfg('y', num(t.y!));
+      // 手書きの project.json では x/y 欠落があり得る。未定義は 0 として扱う。
+      if ((t.x ?? 0) !== 0) cfg('x', num(t.x ?? 0));
+      if ((t.y ?? 0) !== 0) cfg('y', num(t.y ?? 0));
       if (t.direction !== undefined && t.direction !== 90) cfg('direction', num(t.direction));
       if (t.size !== undefined && t.size !== 100) cfg('size', num(t.size));
       if (t.visible === false) cfg('visible', bool(false));
@@ -362,19 +435,19 @@ class Importer {
           const trimmed = s.trim();
           if ((trimmed === '' || /^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(trimmed)) && Number.isFinite(Number(trimmed)) && (!meta.cloud || !Number.isInteger(Number(trimmed)) || Number.isSafeInteger(Number(trimmed)))) {
             init = num(Number(trimmed));
-            if (meta.cloud && s !== String(Number(trimmed))) this.notes.push(`クラウド変数「${meta.name}」の初期値「${s}」は数値として「${Number(trimmed)}」に正規化されます`);
+            if (meta.cloud && s !== String(Number(trimmed))) this.note(diag('note.cloudNormalized', {p0: String(meta.name), p1: String(s), p2: String(Number(trimmed))}));
           } else {
             // 数値として使われているが今は文字列を保持 → 静的型では any に広げる
             init = str(s);
             vtype = T_ANY;
-            if (meta.cloud) this.notes.push(`クラウド変数「${meta.name}」の初期値は安全に数値へ変換できません。元の値を保持するため、書き出し前に修正が必要です`);
+            if (meta.cloud) this.note(diag('note.cloudInvalid', {p0: String(meta.name)}));
           }
         } else {
           init = str(s);
         }
       }
       const decl: VarDecl = {
-        decl: 'var', name: meta.name, quoted: !isIdent(meta.name),
+        decl: 'var', name: meta.name, quoted: !isDataIdent(meta.name),
         varType: vtype, init, cloud: meta.cloud,
       };
       const mon = this.monitorByVarId.get(id);
@@ -386,6 +459,7 @@ class Importer {
           ...(mode === 'slider' ? {
             min: (mon.sliderMin ?? mon.min ?? 0) as number,
             max: (mon.sliderMax ?? mon.max ?? 100) as number,
+            isDiscrete: mon.isDiscrete ?? true,
           } : {}),
         };
       }
@@ -406,7 +480,7 @@ class Importer {
       else if (items.length === 0) elem = meta?.elemType ?? T_ANY;
       meta.elemType = elem;
       const decl: ListDecl = {
-        decl: 'list', name: meta.name, quoted: !isIdent(meta.name),
+        decl: 'list', name: meta.name, quoted: !isDataIdent(meta.name),
         varType: listOf(elem), init,
       };
       const mon = this.monitorByListId.get(id);
@@ -428,7 +502,7 @@ class Importer {
           bitmapResolution: c.bitmapResolution,
         });
       } else {
-        this.notes.push(`コスチューム「${c.name}」(${t.name}) の実ファイル ${c.md5ext} が zip 内に見つかりませんでした。再エクスポート時はデフォルト画像になります`);
+        this.note(diag('note.costumeMissing', {p0: String(c.name), p1: String(t.name), p2: String(c.md5ext)}));
       }
     }
     for (const s of t.sounds ?? []) {
@@ -443,7 +517,7 @@ class Importer {
           format: s.format ?? '',
         });
       } else {
-        this.notes.push(`音「${s.name}」(${t.name}) の実ファイル ${s.md5ext} が zip 内に見つかりませんでした。再エクスポート時は無音になります`);
+        this.note(diag('note.soundMissing', {p0: String(s.name), p1: String(t.name), p2: String(s.md5ext)}));
       }
     }
   }
@@ -454,7 +528,7 @@ class Importer {
     this.currentTargetBlocks = t.blocks ?? {};
     const blocks = t.blocks ?? {};
     if (Object.keys(blocks).length && t.comments && Object.keys(t.comments).length) {
-      this.notes.push(`${t.name}: Scratch のコメントブロック(${Object.keys(t.comments).length}個)はテキストのコメントとしては復元されません`);
+      this.note(diag('note.scratchComments', {p0: String(t.name), p1: String(Object.keys(t.comments).length)}));
     }
     const tops = Object.entries(blocks).filter(([, b]) => b.topLevel && !b.shadow);
     // y → x の順にソートして見た目順に近い出力にする
@@ -472,21 +546,21 @@ class Importer {
         continue;
       }
       if (isReporterish(b.opcode)) {
-        this.notes.push(`${t.name}: 孤立したレポータブロック「${b.opcode}」(値を返すだけのブロック)は無視しました`);
+        this.note(diag('note.orphanReporter', {p0: String(t.name), p1: String(b.opcode)}));
         continue;
       }
       // 孤立したコマンドブロック(実行されない) → 中身を完全にコメントで残す
       const orphan = this.importChain(t, blocks, id);
       for (const s of orphan) {
-        const lines = printStmts([s], 0);
+        const lines = printStmts([s], 0, this.language);
         for (let li = 0; li < lines.length; li++) {
           body.push({
             type: 'comment',
-            text: (li === 0 ? ' [孤立ブロック・実行されません] ' : '   ') + lines[li].trim(),
+            text: (li === 0 ? (this.language === 'en' ? ' [Orphan block; not executed] ' : ' [孤立ブロック・実行されません] ') : '   ') + lines[li].trim(),
           } as CommentStmt);
         }
       }
-      this.notes.push(`${t.name}: ハットブロックなしの孤立したスクリプト(${b.opcode})はコメント化しました`);
+      this.note(diag('note.orphanScript', {p0: String(t.name), p1: String(b.opcode)}));
     }
   }
 
@@ -535,15 +609,15 @@ class Importer {
       const isBool = rep?.opcode === 'argument_reporter_boolean';
       const name = isIdent(rawName) ? rawName : sanitizeIdent(rawName, used);
       if (name !== rawName) {
-        this.notes.push(`${t.name}: ブロック「${defName}」の引数名「${rawName}」を「${name}」に変換しました`);
+        this.note(diag('note.parameterRenamed', {p0: String(t.name), p1: String(defName), p2: String(rawName), p3: String(name)}));
       }
       this.paramRenames.set(`${t.name}\u0000${rawName}`, name);
       return { name, paramType: isBool ? T_BOOL : T_ANY };
     });
     if (proccode.split('%').length - 1 !== argIds.length || /%[^sbn]/.test(proccode.replace(/%%/g, ''))) {
-      this.notes.push(`${t.name}: プロシージャ「${proccode}」のラベルテキストは簡略化されました (ScratchPy名: ${defName})`);
+      this.note(diag('note.procedureSimplified', {p0: String(t.name), p1: String(proccode), p2: String(defName)}));
     } else if (proccode.includes('%')) {
-      this.notes.push(`${t.name}: プロシージャ「${proccode}」→ def ${defName}(...) に変換 (ラベル文字列は省略されます)`);
+      this.note(diag('note.procedureConverted', {p0: String(t.name), p1: String(proccode), p2: String(defName)}));
     }
     const bodyStmts = this.importChain(t, t.blocks, b.next);
     return {
@@ -571,8 +645,12 @@ class Importer {
   private substack(t: SB3Target, blocks: Record<string, SB3Block>, b: SB3Block, name: string): Stmt[] {
     const input = b.inputs?.[name];
     const firstId = typeof input?.[1] === 'string' ? input[1] : null;
-    const stmts = this.importChain(t, blocks, firstId);
-    return stmts.length ? stmts : [{ type: 'pass' }];
+    if (this.substackDepth >= 80) throw new Sb3ParseError(diag('import.depth'));
+    this.substackDepth++;
+    try {
+      const stmts = this.importChain(t, blocks, firstId);
+      return stmts.length ? stmts : [{ type: 'pass' }];
+    } finally { this.substackDepth--; }
   }
 
   // --- 文変換 ------------------------------------------------------------------
@@ -756,8 +834,8 @@ class Importer {
     const proccode = String(b.mutation?.proccode ?? '');
     const defName = this.procNames.get(`${t.name}\u0000${proccode}`);
     if (!defName) {
-      this.notes.push(`${t.name}: 定義のないカスタムブロック「${proccode}」の呼び出しをコメント化しました`);
-      return { type: 'comment', text: ` [定義なしカスタムブロック] ${proccode}` };
+      this.note(diag('note.undefinedBlock', {p0: String(t.name), p1: String(proccode)}));
+      return { type: 'comment', text: this.language === 'en' ? ` [Undefined custom block] ${proccode}` : ` [定義なしカスタムブロック] ${proccode}` };
     }
     let argIds: string[] = [];
     try { argIds = JSON.parse(String(b.mutation?.argumentids ?? '[]')); } catch { /* noop */ }
@@ -878,6 +956,12 @@ class Importer {
       // プロパティ系
       default: break;
     }
+    if (b.opcode === 'looks_costumenumbername' || b.opcode === 'looks_backdropnumbername') {
+      const choice = String(b.fields?.NUMBER_NAME?.[0] ?? 'number');
+      if (choice !== 'number' && choice !== 'name') this.note(diag('note.appearanceChoice', {p0: String(choice)}));
+      const prefix = b.opcode === 'looks_costumenumbername' ? 'costume' : 'backdrop';
+      return { type: 'name', name: `${prefix}_${choice === 'name' ? 'name' : 'number'}` };
+    }
     if (PROPERTY_OPCODES[b.opcode]) return { type: 'name', name: PROPERTY_OPCODES[b.opcode] };
     switch (b.opcode) {
       // --- operator ---
@@ -954,7 +1038,7 @@ class Importer {
 
   private fallbackParam(pname: string): Expr {
     // 識別子化できない引数名 → 注釈して var() 風の回避(型は any)
-    this.notes.push(`識別子化できない引数名「${pname}」を検出しました。sanitize して参照します`);
+    this.note(diag('note.parameterSanitized', {p0: String(pname)}));
     return { type: 'name', name: sanitizeIdent(pname, new Set()) };
   }
 
@@ -962,22 +1046,10 @@ class Importer {
     const prop = String(b.fields?.PROPERTY?.[0] ?? '');
     const objectMenu = this.menuStrRaw(b, 'OBJECT', 'sensing_of_object_menu');
     const pyProp = PROP_REVERSE[prop] ?? prop;
-    let objName: string;
-    if (objectMenu === '_stage_') objName = 'stage';
-    else {
-      const ident = this.spriteIdentNames.get(objectMenu);
-      objName = ident ?? objectMenu;
-    }
-    if (!isIdent(objName)) {
-      this.notes.push(`sensing_of の対象「${objectMenu}」を参照できません(名前が識別子化できないため)`);
-      return str('');
-    }
-    if (!isIdent(pyProp)) {
-      // 変数名が識別子でない → prop アクセス不可
-      this.notes.push(`「${objectMenu} の ${prop}」参照はプロパティ名が識別子化できないため var() 形式にできません。0 を返します`);
-      return num(0);
-    }
-    return { type: 'prop', obj: { type: 'name', name: objName } as Expr, prop: pyProp } as Expr;
+    const obj: Expr = objectMenu === '_stage_'
+      ? { type: 'name', name: 'stage' }
+      : isIdent(objectMenu) ? { type: 'name', name: objectMenu } : str(objectMenu);
+    return { type: 'prop', obj, prop: pyProp } as Expr;
   }
 
   private shadowFieldOrInput(b: SB3Block): string | number {
@@ -1099,12 +1171,12 @@ class Importer {
           for (const f of Object.values(menu.fields ?? {})) return String(f[0] ?? '');
         } else if (menu) {
           this.noteUnsupported(this.currentTarget?.name ?? '', `${b.opcode}(動的メニュー:${inputName})`);
-          this.notes.push(`${b.opcode} の ${inputName} は動的な値を使っています。ScratchPyでは未対応のため、元の .sb3 を保存してください`);
+          this.note(diag('note.dynamicInput', {p0: String(b.opcode), p1: String(inputName)}));
         }
       } else if (Array.isArray(val)) {
         if (val[0] === 12 || val[0] === 13) {
           this.noteUnsupported(this.currentTarget?.name ?? '', `${b.opcode}(動的メニュー:${inputName})`);
-          this.notes.push(`${b.opcode} の ${inputName} は変数を使っています。ScratchPyでは未対応のため、元の .sb3 を保存してください`);
+          this.note(diag('note.variableInput', {p0: String(b.opcode), p1: String(inputName)}));
         } else return String((val as unknown[])[1] ?? '');
       }
       // ダイナミック(レポータ差し込み) → shadow から
@@ -1150,17 +1222,17 @@ class Importer {
 
   private varRefByName(name: string): Expr {
     const clean = name.replace(/^☁ /, '');
-    return isIdent(clean)
+    return isDataIdent(clean)
       ? { type: 'name', name: clean }
       : { type: 'varref', name: clean } as Expr;
   }
 
   private listTargetExpr(t: SB3Target, field: [string | number, string | null, ...unknown[]] | undefined): Expr {
     const name = String(field?.[0] ?? '');
-    return isIdent(name) ? { type: 'name', name } : ({ type: 'listref', name } as Expr);
+    return isDataIdent(name) ? { type: 'name', name } : ({ type: 'listref', name } as Expr);
   }
   private listRefByName(name: string): Expr {
-    return isIdent(name) ? { type: 'name', name } : ({ type: 'listref', name } as Expr);
+    return isDataIdent(name) ? { type: 'name', name } : ({ type: 'listref', name } as Expr);
   }
 
   private noteUnsupported(targetName: string, opcode: string): void {
@@ -1191,6 +1263,6 @@ function isReporterish(op: string): boolean {
 // ---------------------------------------------------------------------------
 // 公開 API
 // ---------------------------------------------------------------------------
-export function importProject(project: SB3Project, files?: Map<string, Uint8Array>): ImportResult {
-  return new Importer().importProject(project, files);
+export function importProject(project: SB3Project, files?: Map<string, Uint8Array>, language: 'ja' | 'en' = 'ja'): ImportResult {
+  return new Importer(language).importProject(project, files);
 }

@@ -1,0 +1,6 @@
+{
+  "files": {
+    "src/app/components/GuidePage.tsx": "Japanese-only guide page. The English edition renders src/app/components/EnglishGuide.tsx instead, so every literal here is intentional."
+  },
+  "entries": []
+}

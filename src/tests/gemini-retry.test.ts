@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { describeProviderError, ProviderHttpError, requestModel, runAgent, type RetryInfo } from '../app/ai/agent';
+import { askTutor, describeProviderError, ProviderHttpError, requestModel, type RetryInfo } from '../app/ai/agent';
 import { askEducationAssistant } from '../education/educationAssistant';
 import { emptyAssetStore } from '../core/api';
 const ok=()=>new Response(JSON.stringify({candidates:[{finishReason:'STOP',content:{parts:[{text:'Hello!'}]}}]}),{status:200});
@@ -47,10 +47,10 @@ describe('Gemini temporary service overload',()=>{
     const pending=requestModel('gemini','secret-key','model',[],abort.signal,f,undefined,()=>abort.abort());
     await expect(pending).rejects.toMatchObject({name:'AbortError'});expect(f).toHaveBeenCalledTimes(1);expect(vi.getTimerCount()).toBe(0);
   });
-  it('reports retries through the Studio agent',async()=>{
-    vi.useFakeTimers();vi.spyOn(Math,'random').mockReturnValue(0);const f=vi.fn().mockResolvedValueOnce(unavailable()).mockResolvedValueOnce(ok());const events:string[]=[];
-    const pending=runAgent({provider:'gemini',key:'secret-key',model:'model',prompt:'hello',source:'stage:\n    pass\n',assets:emptyAssetStore(),history:[],signal:signal(),fetcher:f,onEvent:e=>events.push(e.kind)});
-    await vi.runAllTimersAsync();expect((await pending).reply).toBe('Hello!');expect(events).toEqual(['request','retry']);
+  it('reports retries through the Studio tutor',async()=>{
+    vi.useFakeTimers();vi.spyOn(Math,'random').mockReturnValue(0);const f=vi.fn().mockResolvedValueOnce(unavailable()).mockResolvedValueOnce(ok());
+    const pending=askTutor({provider:'gemini',key:'secret-key',model:'model',prompt:'hello',source:'stage:\n    pass\n',assets:emptyAssetStore(),history:[],signal:signal(),fetcher:f});
+    await vi.runAllTimersAsync();expect((await pending).reply).toBe('Hello!');expect(f).toHaveBeenCalledTimes(2);
   });
   it('reports retries through Education without sending unshared code',async()=>{
     vi.useFakeTimers();vi.spyOn(Math,'random').mockReturnValue(0);const f=vi.fn().mockResolvedValueOnce(unavailable()).mockResolvedValueOnce(ok());const retries:RetryInfo[]=[];

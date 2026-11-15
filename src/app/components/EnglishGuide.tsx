@@ -10,7 +10,7 @@ import format from '../../../docs/en/sb3.md?raw';
 import mapping from '../../../docs/en/mapping.md?raw';
 import architecture from '../../../docs/en/architecture.md?raw';
 
-const docs = [
+export const ENGLISH_GUIDE_DOCS = [
   {id:'usage', title:'Getting started', label:'START HERE', description:'Open projects, edit blocks and export to Scratch.', icon:IconLightbulb, content:usage},
   {id:'language', title:'ScratchPy language', label:'LEARN THE LANGUAGE', description:'Explore types, events, variables, loops and custom blocks.', icon:IconCode, content:language},
   {id:'format', title:'Inside an .sb3 file', label:'EXPLORE SCRATCH', description:'Understand targets, project.json, blocks and assets.', icon:IconFile, content:format},
@@ -21,13 +21,29 @@ interface Props { page:GuideId; dark:boolean; onNavigate:(id:GuideId)=>void; onC
 export default function EnglishGuide({page,dark,onNavigate,onClose,onToggleTheme}:Props) {
   const [search,setSearch] = useState('');
   const scroller = useRef<HTMLElement>(null);
+  const pendingAnchor = useRef<string | null>(null);
+  const docs = ENGLISH_GUIDE_DOCS;
   const doc = docs.find(d=>d.id===page);
   const visible = docs.filter(d=>`${d.title} ${d.description} ${d.label}`.toLowerCase().includes(search.trim().toLowerCase()));
-  useEffect(()=>{scroller.current?.scrollTo({top:0});},[page]);
+  const scrollToAnchor=(id:string)=>document.getElementById(id)?.scrollIntoView({block:'start'});
+  useEffect(()=>{
+    const anchor=pendingAnchor.current;
+    pendingAnchor.current=null;
+    if(anchor) requestAnimationFrame(()=>scrollToAnchor(anchor));
+    else scroller.current?.scrollTo({top:0});
+  },[page]);
   const follow = (href:string) => {
-    if (href.startsWith('#')) { let id=href.slice(1); try {id=decodeURIComponent(id)} catch {/* invalid URI */} document.getElementById(id)?.scrollIntoView({behavior:'smooth'}); return true; }
-    const path=href.split('#')[0].split('/').pop(); const target=docs.find(d=>`${d.id}.md`===path || (d.id==='format' && path==='sb3.md'));
-    if(target){onNavigate(target.id);return true;} return false;
+    const [path,fragment] = href.split('#');
+    let anchor=fragment || '';
+    try { anchor=decodeURIComponent(anchor); } catch { /* use original */ }
+    if (!path) { if(anchor) scrollToAnchor(anchor); return true; }
+    const file=path.split('/').pop();
+    const aliases:Record<string,GuideId>={'usage.md':'usage','language.md':'language','sb3.md':'format','mapping.md':'mapping','architecture.md':'architecture'};
+    const target=file && aliases[file];
+    if (!target) return false;
+    if (target===page) { if(anchor) scrollToAnchor(anchor); else scroller.current?.scrollTo({top:0}); }
+    else { pendingAnchor.current=anchor || null; onNavigate(target); }
+    return true;
   };
   return <div className="guide-page">
     <header className="guide-topbar">

@@ -1,3 +1,4 @@
+import { REPORTER_MONITORS } from '../../core/lang/monitors';
 /**
  * Blockly ブロック定義・テーマ・ツールボックス
  * ScratchPy の全構文を Blockly ブロックとして定義する。
@@ -58,6 +59,7 @@ export const MENU_JA: Record<string, string> = {
   year: '年', month: '月', date: '日', 'day of week': '曜日',
   hour: '時', minute: '分', second: '秒',
   transparency: '透明度', saturation: '鮮やかさ',
+  draggable: 'ドラッグできる', 'not draggable': 'ドラッグできない', sync: 'sync (互換)',
 };
 export const menuJa = (v: string) => EN ? v : (MENU_JA[v] ?? v);
 const clean = (doc: string) => doc.replace(/[「」]/g, '');
@@ -93,7 +95,7 @@ export const LABELS: Record<string, string[]> = {
   stop: ['{0} を止める'],
   create_clone: ['自分自身のクローンを作る', '{0} のクローンを作る'],
   delete_clone: ['このクローンを削除する'],
-  ask: ['{0} と聞いて待つ'], reset_timer: ['タイマーをリセット'],
+  ask: ['{0} と聞いて待つ'], reset_timer: ['タイマーをリセット'], set_drag_mode: ['ドラッグを {0} にする'],
   touching: ['{0} に触れた?'], touching_color: ['{0} 色に触れた?'],
   color_touching_color: ['{0} 色が {1} 色に触れた?'],
   distance_to: ['{0} までの距離'], key_pressed: ['{0} キーが押された?'],
@@ -124,7 +126,7 @@ const EN_LABELS: Record<string, string[]> = {
   change_size: ['change size by {0}'], set_size: ['set size to {0}%'], change_effect: ['change {0} effect by {1}'], set_effect: ['set {0} effect to {1}'], clear_effects: ['clear visual effects'],
   play_sound: ['start sound {0}'], play_sound_until_done: ['play sound {0} until done'], stop_all_sounds: ['stop all sounds'],
   broadcast: ['broadcast {0}'], broadcast_and_wait: ['broadcast {0} and wait'], wait: ['wait {0} seconds'], wait_until: ['wait until {0}'], stop: ['stop {0}'],
-  create_clone: ['create clone of myself', 'create clone of {0}'], delete_clone: ['delete this clone'], ask: ['ask {0} and wait'], reset_timer: ['reset timer'],
+  create_clone: ['create clone of myself', 'create clone of {0}'], delete_clone: ['delete this clone'], ask: ['ask {0} and wait'], reset_timer: ['reset timer'], set_drag_mode: ['set drag mode {0}'],
   touching: ['touching {0}?'], touching_color: ['touching color {0}?'], color_touching_color: ['color {0} touching {1}?'], distance_to: ['distance to {0}'], key_pressed: ['key {0} pressed?'],
   item_number: ['item number of {1} in {0}'],
   random: ['pick random {0} to {1}'], join: ['join {0} {1}'], len: ['length of {0}'], current: ['current {0}'], current_of: ['current {0}'],
@@ -278,7 +280,7 @@ export function registerScratchPyBlocks(): void {
       this.appendDummyInput().appendField(word('ステージ')).appendField(new Blockly.FieldTextInput(''), 'NAME');
       this.appendStatementInput('BODY').setCheck(['BODY']);
       (this as unknown as { setHat?: (h: string) => void }).setHat?.('cap');
-      this.setTooltip(EN ? '' : 'ステージ(背景・グローバル変数)');
+      this.setTooltip(EN ? 'Stage (backdrop and global variables)' : 'ステージ(背景・グローバル変数)');
     },
   };
   Blockly.Blocks['sp_sprite'] = {
@@ -287,7 +289,7 @@ export function registerScratchPyBlocks(): void {
       this.appendDummyInput().appendField(word('スプライト')).appendField(new Blockly.FieldTextInput('Sprite1'), 'NAME');
       this.appendStatementInput('BODY').setCheck(['BODY']);
       (this as unknown as { setHat?: (h: string) => void }).setHat?.('cap');
-      this.setTooltip(EN ? '' : 'スプライト(キャラクター)');
+      this.setTooltip(EN ? 'Sprite (character)' : 'スプライト(キャラクター)');
     },
   };
 
@@ -312,7 +314,7 @@ export function registerScratchPyBlocks(): void {
         .appendField(new Blockly.FieldCheckbox(false), 'CLOUD').appendField(word('クラウド'));
       this.setPreviousStatement(true, ['BODY']);
       this.setNextStatement(true, ['BODY']);
-      this.setTooltip(EN ? '' : '変数を宣言します(型つき)');
+      this.setTooltip(EN ? 'Declares a typed variable' : '変数を宣言します(型つき)');
     },
   };
   Blockly.Blocks['sp_list'] = {
@@ -327,7 +329,7 @@ export function registerScratchPyBlocks(): void {
       this.appendDummyInput().appendField(new Blockly.FieldDropdown([[word('(モニターなし)'), ''], [word('表示'), 'show'], [word('非表示'), 'hide']]), 'MON');
       this.setPreviousStatement(true, ['BODY']);
       this.setNextStatement(true, ['BODY']);
-      this.setTooltip(EN ? '' : 'リストを宣言します');
+      this.setTooltip(EN ? 'Declares a list' : 'リストを宣言します');
     },
   };
   Blockly.Blocks['sp_costume'] = {
@@ -352,6 +354,7 @@ export function registerScratchPyBlocks(): void {
     ['volume', 'volume'], ['current_costume', 'current_costume'], ['layer_order', 'layer_order'],
     ['tempo', 'tempo'], ['video_state', 'video_state'], ['video_transparency', 'video_transparency'],
     ['tts_language', 'tts_language'],
+    ...REPORTER_MONITORS.map(m => [m.key, m.key] as [string, string]),
   ];
   Blockly.Blocks['sp_config'] = {
     init(this: B) {
@@ -361,7 +364,7 @@ export function registerScratchPyBlocks(): void {
       this.appendValueInput('VALUE').setCheck(null);
       this.setPreviousStatement(true, ['BODY']);
       this.setNextStatement(true, ['BODY']);
-      this.setTooltip(EN ? '' : 'スプライト/ステージの初期設定');
+      this.setTooltip(EN ? 'Initial settings for a sprite or the stage' : 'スプライト/ステージの初期設定');
     },
   };
   Blockly.Blocks['sp_comment'] = {
@@ -386,7 +389,7 @@ export function registerScratchPyBlocks(): void {
       this.appendDummyInput().appendField(word('変換不可ブロック:')).appendField(new Blockly.FieldTextInput('unknown'), 'OPCODE');
       this.setPreviousStatement(true, ['BODY', 'STMT']);
       this.setNextStatement(true, ['BODY', 'STMT']);
-      this.setTooltip(EN ? '' : '元の .sb3 にあった、ScratchPy に対応しないブロック');
+      this.setTooltip(EN ? 'A block from the original .sb3 that ScratchPy does not support' : '元の .sb3 にあった、ScratchPy に対応しないブロック');
     },
   };
 
@@ -444,7 +447,7 @@ export function registerScratchPyBlocks(): void {
       (this as unknown as { setHat?: (h: string) => void }).setHat?.('cap');
       this.setPreviousStatement(true, ['BODY']);
       this.setNextStatement(true, ['BODY']);
-      this.setTooltip(EN ? '' : '引数は「名前: 型, 名前: 型」の形で書きます(例: power: int, shout: bool)');
+      this.setTooltip(EN ? 'Write parameters as "name: type, name: type" (for example power: int, shout: bool)' : '引数は「名前: 型, 名前: 型」の形で書きます(例: power: int, shout: bool)');
     },
   };
 
@@ -529,7 +532,7 @@ export function registerScratchPyBlocks(): void {
         .appendField(new Blockly.FieldTextInput('score'), 'NAME');
       this.setPreviousStatement(true, null);
       this.setNextStatement(true, null);
-      this.setTooltip(EN ? '' : '変数・リストのモニターを表示/非表示');
+      this.setTooltip(EN ? 'Show or hide the variable or list monitor' : '変数・リストのモニターを表示/非表示');
     },
   };
   Blockly.Blocks['sp_forever'] = {
@@ -559,7 +562,7 @@ export function registerScratchPyBlocks(): void {
       this.setColour(COLORS.variables);
       this.appendDummyInput().appendField(new Blockly.FieldTextInput('score'), 'NAME');
       this.setOutput(true, null);
-      this.setTooltip(EN ? '' : '変数・リスト・スプライトの名前');
+      this.setTooltip(EN ? 'Name of a variable, list, or sprite' : '変数・リスト・スプライトの名前');
     },
   };
   const propOptions = () => Object.keys(PROPERTIES).map(k => [EN ? k : clean(PROPERTIES[k].doc), k] as [string, string]);
@@ -573,7 +576,7 @@ export function registerScratchPyBlocks(): void {
       this.setColour(COLORS[catOfOpcode(PROPERTIES[String(field.getValue())]?.opcode) ?? 'sensing']);
       this.appendDummyInput().appendField(field, 'PROP');
       this.setOutput(true, null);
-      this.setTooltip(EN ? '' : '自分のスプライト/ステージのプロパティ(読み取り専用)');
+      this.setTooltip(EN ? 'Read-only property of this sprite or the stage' : '自分のスプライト/ステージのプロパティ(読み取り専用)');
     },
   };
   Blockly.Blocks['sp_prop_of'] = {
@@ -585,7 +588,7 @@ export function registerScratchPyBlocks(): void {
         .appendField(word('の'))
         .appendField(new Blockly.FieldDropdown(Object.keys(SENSING_OF_PROPS).map(k => [EN ? k : clean(PROPERTIES[k]?.doc ?? k), k])), 'PROP');
       this.setOutput(true, null);
-      this.setTooltip(EN ? '' : '他のスプライトの値');
+      this.setTooltip(EN ? 'Value of another sprite' : '他のスプライトの値');
     },
   };
   Blockly.Blocks['sp_index'] = {
@@ -603,7 +606,7 @@ export function registerScratchPyBlocks(): void {
       this.appendValueInput('VALUE').setCheck(null).appendField('');
       this.appendDummyInput().appendField(word('の長さ'));
       this.setOutput(true, ['Number']);
-      this.setTooltip(EN ? '' : '文字数 / リストの要素数');
+      this.setTooltip(EN ? 'Length of a string or a list' : '文字数 / リストの要素数');
     },
   };
   Blockly.Blocks['sp_in'] = {
@@ -679,6 +682,59 @@ export function registerScratchPyBlocks(): void {
       this.setOutput(true, ['Number']);
     },
   };
+  applyBlockTips();
+}
+
+// 明示的なツールチップを持たないブロックに、短い日本語/英語ヒントを与える。
+// （演算・リスト系は新規利用者が最も迷うため、空のままにしない）
+export const BLOCK_TIPS: Record<string, [ja: string, en: string]> = {
+  sp_costume: ['コスチュームを追加します', 'Adds a costume'],
+  sp_sound: ['音を追加します', 'Adds a sound'],
+  sp_comment: ['コメント(メモ)です。実行されません', 'A comment; it does not run'],
+  sp_pass: ['何もしない文です', 'Does nothing'],
+  sp_on_flag: ['緑の旗が押されたときのイベント', 'Runs when the green flag is clicked'],
+  sp_on_key: ['キーが押されたときのイベント', 'Runs when a key is pressed'],
+  sp_on_click: ['スプライトがクリックされたときのイベント', 'Runs when the sprite is clicked'],
+  sp_on_clone: ['クローンが作られたときのイベント', 'Runs when a clone is created'],
+  sp_on_receive: ['メッセージを受け取ったときのイベント', 'Runs when it receives a message'],
+  sp_on_greater: ['センサーの値が大きいときのイベント', 'Runs when a sensor value is greater than the threshold'],
+  sp_on_backdrop: ['背景が切り替わったときのイベント', 'Runs when the backdrop switches'],
+  sp_assign: ['変数に値を代入します', 'Assigns a value to a variable'],
+  sp_augassign: ['変数に足す・引くなどの複合代入', 'Adds to or subtracts from a variable'],
+  sp_replace: ['リストの指定した位置の値を置き換えます', 'Replaces the value at a list position'],
+  sp_list_add: ['リストの末尾に値を追加します', 'Adds a value to the end of a list'],
+  sp_list_insert: ['リストの指定した位置に値を挿入します', 'Inserts a value at a list position'],
+  sp_list_delete: ['リストの指定した位置の値を削除します', 'Deletes the value at a list position'],
+  sp_list_clear: ['リストの値をすべて削除します', 'Deletes every value in the list'],
+  sp_forever: ['ずっと繰り返します (停止するまで)', 'Repeats forever until the project stops'],
+  sp_while: ['条件が正しい間、繰り返します', 'Repeats while the condition is true'],
+  sp_index: ['リストや文字列の指定した位置の値', 'The value at a position in a list or string'],
+  sp_in: ['リストに値が含まれるかを調べます', 'Checks whether a list contains a value'],
+  sp_add: ['足し算', 'Addition'],
+  sp_sub: ['引き算', 'Subtraction'],
+  sp_mul: ['掛け算', 'Multiplication'],
+  sp_div: ['割り算', 'Division'],
+  sp_mod: ['割り算の余り', 'Remainder of a division'],
+  sp_cmp: ['2つの値を比較します (等しい・小さい・大きい)', 'Compares two values'],
+  sp_and: ['両方の条件が正しいときだけ真', 'True only when both conditions are true'],
+  sp_or: ['どちらかの条件が正しければ真', 'True when either condition is true'],
+  sp_not: ['条件を反転します', 'Inverts a condition'],
+  sp_neg: ['符号を反転します', 'Negates the value'],
+};
+const tipped = new WeakSet<object>();
+
+/** 明示的なヒントが無いブロックにだけ既定のヒントを設定する（再登録しても二重に包まない）。 */
+function applyBlockTips(): void {
+  for (const [type, [ja, en]] of Object.entries(BLOCK_TIPS)) {
+    const def = Blockly.Blocks[type] as { init?: (this: B) => void } | undefined;
+    if (!def?.init || tipped.has(def)) continue;
+    const original = def.init;
+    def.init = function (this: B) {
+      original.call(this);
+      if (!(this as unknown as { tooltip?: string }).tooltip) this.setTooltip(EN ? en : ja);
+    };
+    tipped.add(def);
+  }
 }
 
 // ---------- テーマ ----------
@@ -832,19 +888,4 @@ export function makeToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
     { kind: 'category', name: word('マイブロック'), colour: COLORS.myblocks, custom: 'SP_USER' } as ToolboxCat,
   ];
   return { kind: 'categoryToolbox', contents: cats as never };
-}
-
-/** マイブロックカテゴリ(動的): 定義済みカスタムブロックを並べる */
-export function registerUserCategory(
-  ws: Blockly.WorkspaceSvg | Blockly.Workspace,
-  types: () => string[],
-): void {
-  (ws as Blockly.WorkspaceSvg).registerToolboxCategoryCallback?.('SP_USER', () => {
-    const list = types();
-    const contents: { kind: 'block'; type: string }[] = list.map(t => ({ kind: 'block', type: t }));
-    if (!contents.length) {
-      return [{ kind: 'label' as const, text: '「定義」ブロックを作ると\nここに並びます' }];
-    }
-    return contents;
-  });
 }

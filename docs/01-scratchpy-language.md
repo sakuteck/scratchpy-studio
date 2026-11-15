@@ -105,7 +105,7 @@ move(10)  # 行の後ろにも書けます
 
 - 整数: `0`, `42`, `-7`(単項マイナス)
 - 小数: `3.14`, `0.5`
-- 指数表記・2 進数などは**ありません**(Scratch に合わせるため)。
+- 指数表記（例: `1.5e-7`）を使用できます。2進数などのプレフィックス表記は使えません。指数表記で整数値になる数は `int` として扱います。
 
 ### 3.5 文字列リテラル
 
@@ -207,7 +207,7 @@ var whatever: any = 100
 
 - ステージの `var` → **グローバル変数(すべてのスプライト用)**
 - スプライトの `var` → **このスプライトのみの変数(ローカル)**
-- 初期値は必須です。
+- 初期値は必須で、数値・文字列・真偽値のリテラルを直接書きます。`timer` など実行時の値は `on flag:` などの中で代入します。
 
 **モニター表示のアノテーション**(宣言の後ろに書く):
 
@@ -215,7 +215,10 @@ var whatever: any = 100
 |---|---|
 | `@show` | 画面に表示(標準モニター) |
 | `@show(large)` | 大きな表示 |
-| `@show(slider, 0, 100)` | スライダー表示(最小, 最大) |
+| `@show(slider, 0, 100)` | 整数刻みスライダー表示(最小, 最大) |
+| `@show(slider, -10, 50, false)` | 連続値スライダー表示 |
+| `@hide(slider, -10, 50, false)` | 非表示のままスライダー設定を保持 |
+| `@hide(large)` | 非表示のまま大型表示設定を保持 |
 | `@hide` | 非表示(既定) |
 | `@cloud` | クラウド変数(☁)。数値型のみ・ステージのみ推奨 |
 
@@ -280,6 +283,42 @@ sprite Cat:
 | `current_costume` | int | 0 | 表示中の背景番号 |
 | `tts_language` | str | なし | 読み上げ言語(textToSpeechLanguage) |
 
+#### 値モニターの初期表示
+
+Scratch のタイマーなど、専用の「表示する／隠す」ブロックがない値モニターは、初期設定で `true`（表示）または `false`（非表示）を指定します。**省略したときは非表示**です。設定できるのはプロジェクトの初期表示であり、実行中にこれらの値モニターの表示を切り替える命令ではありません。設定値には式や変数ではなく `true` / `false` を直接書きます。
+
+```scratchpy
+stage:
+    timer_visible: true
+    current_year_visible: true
+    backdrop_name_visible: false
+    var score: int = 0 @show
+    on flag:
+        reset_timer()
+        hide(score)       # 変数・リストは従来どおり show/hide で切り替える
+
+sprite Cat:
+    x_position_visible: true
+    direction_visible: true
+    costume_name_visible: false
+    on flag:
+        move(10)
+```
+
+| 場所 | キー（各 `true` / `false`） | 対象 |
+|---|---|---|
+| ステージ | `timer_visible`, `answer_visible`, `loudness_visible` | タイマー、答え、マイク音量 |
+| ステージ | `current_year_visible`, `current_month_visible`, `current_date_visible`, `current_dayofweek_visible`, `current_hour_visible`, `current_minute_visible`, `current_second_visible` | 日時の各項目 |
+| ステージ | `backdrop_number_visible`, `backdrop_name_visible` | 背景の番号・名前 |
+| ステージ | `tempo_visible` | 音楽拡張のテンポ（書き出し時に music 拡張を追加） |
+| ステージ | `ev3_distance_visible`, `ev3_brightness_visible`, `wedo2_distance_visible`, `force_visible`, `speech_visible`, `viewer_language_visible` | 各拡張の距離・明るさ・力・音声認識・閲覧者の言語（表示設定のみ。拡張機器やサービスの実行は別途必要） |
+| 各スプライト | `x_position_visible`, `y_position_visible`, `direction_visible`, `size_visible` | 座標、向き、大きさ |
+| 各スプライト | `costume_number_visible`, `costume_name_visible` | コスチュームの番号・名前 |
+| ステージ／各スプライト | `volume_visible` | その対象の音量 |
+
+`.sb3` の対応モニターは表示・非表示を読み込みます。位置と大きさは読み込み時のアセット情報とともに保持し、表示形式は標準化される場合があります。未対応の拡張モニター（メニュー選択がある一部の機器やビデオなど）は、ログに記録し、書き出し時に失われます。プレビューの安全制限によりマイクやカメラ、外部機器を使う値は取得できません。変数・リストは今までどおり宣言の `@show` / `@hide` と実行中の `show()` / `hide()` で扱います。
+
+
 ---
 
 ## 6. イベント(ハットブロック)
@@ -304,6 +343,8 @@ on key "up arrow":
 on receive "start":
     broadcast("go")
 ```
+
+`on key "space":` や `on key "a":`、`on key "up arrow":` のようにキー名を引用符付きで指定します。`any` はどれかのキーです。押下イベントと、押されている状態を調べる `key_pressed("space")` は別の機能です。
 
 ---
 
@@ -401,6 +442,7 @@ forever:          # ずっと
 | `delete_clone()` | このクローンを削除する |
 | `ask("名前は?")` | 〜と聞いて待つ |
 | `reset_timer()` | タイマーをリセット |
+| `set_drag_mode("draggable")` / `set_drag_mode("not draggable")` | ドラッグできる／できないに設定 |
 | `show()` / `hide()` | 表示する / 隠す |
 | `show(score)` / `hide(score)` | 変数(リスト)モニターを表示/隠す |
 | `pass` | 何もしない(空の本体に必要) |
@@ -448,7 +490,7 @@ list("a&b")     # 識別子で書けないリスト名の参照
 items[2]        # リストの要素(1 始まり。"last"/"random" も可)
 items[i + 1]    # 式を添字にできる
 Cat.x           # 他のスプライトのプロパティ
-stage.tempo     # ステージのプロパティ
+tempo           # プロジェクト全体のテンポ
 ```
 
 ### 9.3 `in` 演算子
@@ -522,6 +564,7 @@ if key_pressed("space"):  # (関数)
 |---|---|---|
 | `ask(question)` | と聞いて待つ | 🅢🅣 |
 | `reset_timer()` | タイマーをリセット | 🅢🅣 |
+| `set_drag_mode("draggable")` / `set_drag_mode("not draggable")` | ドラッグできる／できないに設定 | 🅢🅣 |
 | `touching(target)` → bool | に触れた?(target: "edge" / "mouse" / スプライト名) | 🅢 |
 | `touching_color("#ff0000")` → bool | 色に触れた? | 🅢 |
 | `color_touching_color(c1, c2)` → bool | 色が色に触れた? | 🅢 |
@@ -562,7 +605,7 @@ if key_pressed("space"):  # (関数)
 ## 11. プロパティ
 
 読み取り専用の値です。自分のスプライト内では名前だけで参照でき、
-**他のスプライトの値**は `スプライト名.プロパティ`、**ステージの値**は `stage.プロパティ` で参照します。
+**他のスプライトの値**は `スプライト名.プロパティ` で参照します。空白や予約語を含む名前の場合は `"My Cat".x` のように引用します。変数名も特殊な場合は `"My Cat"."my score"` と書けます。背景番号・背景名・テンポはスプライトからも `backdrop_number` / `backdrop_name` / `tempo` の名前だけで参照できます。
 
 | プロパティ | 型 | Scratch ブロック | 対象 |
 |---|---|---|---|
@@ -590,12 +633,12 @@ if key_pressed("space"):  # (関数)
 sprite Cat:
     on flag:
         say(Dog.x)          # 他スプライトの x 座標(sensing_of)
-        say(stage.tempo)    # ステージのテンポ
+        say(tempo)          # プロジェクトのテンポ
         if touching("edge"):
             set_x(0)
 ```
 
-`Cat.x` のように他のスプライトを参照すると、Scratch の「〜の x 座標」(`sensing_of`)ブロックになります。参照できるプロパティは x, y, direction, size, volume, costume_number, costume_name, backdrop_number, backdrop_name, tempo の 10 種類 + そのスプライト(ステージ)の変数です。
+`Cat.x` のように他のスプライトを参照すると、Scratch の「〜の x 座標」(`sensing_of`)ブロックになります。参照できるプロパティは対象に応じて x, y, direction, size, volume, costume_number, costume_name, backdrop_number, backdrop_name、および対象の変数です。テンポは `tempo` と直接書いてください。
 
 ---
 
@@ -608,9 +651,9 @@ sprite Cat:
 3. **ステージ**の変数・リスト(グローバル)
 4. プロパティ(x, timer, answer など)
 
-### 予約名(変数名・パラメータ名に使えない)
+### 予約名と引用
 
-プロパティ名はすべて予約されています:
+引用符なしでは、組み込み関数名と次のプロパティ名を変数・リスト・パラメータ名に使えません。変数やリストでは `var "timer": int = 0`、`var("timer")`、`list("名前")` のように引用すれば使用できます。カスタムブロックのパラメータは識別子のみ使用でき、インポート時には必要に応じ改名してログに記録します。
 
 ```
 x y direction size costume_number costume_name volume backdrop_number
@@ -703,4 +746,16 @@ sprite Timer:
 `play_drum(drum, beats)`、`play_midi_drum(drum, beats)`、`rest_beats(beats)`、`play_note(note, beats)`、`set_instrument(instrument)`、`set_midi_instrument(instrument)`、`set_tempo(tempo)`、`change_tempo(tempo)` は数値引数を取り、Scratch music 拡張へ変換します。プロジェクトの extensions に `music` が追加されます。テンポの取得には `tempo` を使います。
 
 
-`item_number(items, item)` は Scratch の「リスト中の項目の位置」を返します。最初の一致は 1 始まり、見つからない場合は 0 です。`len(items)` はリストの長さを返します。
+`item_number(items, item)` は Scratch の「リスト中の項目の位置」を返します。第1引数は宣言済みのリスト名で、数値の `item_number(1, 1)` は型エラーです。最初の一致は 1 始まり、見つからない場合は 0 です。`len(items)` はリストの長さを返します。`items[1] = "x"` は最初の項目を置き換えます。
+
+`set_drag_mode()` は `"draggable"` または `"not draggable"` を指定します。読み込んだ互換ファイルに含まれる非標準値 `"sync"` も保持しますが、Scratch公式VMでは `"draggable"` 以外はドラッグ不可として扱われます。
+
+### 安全上の上限と往復時の注意
+
+テキストの括弧の入れ子は最大200段、インデントは最大100段、sb3ブロックの入れ子は最大80段です。超えた場合はデータを黙って切り詰めずエラーにします。sb3に同名のターゲットがある場合、参照先を判別できないため自動改名せず読み込みを中止します。Scratchで名前を修正し、元ファイルも保存してください。変数・リスト・値モニターの位置・大きさはアセット情報と一緒に保持します。テキストだけをコピーした場合は自動配置されます。読み込んだ拡張宣言はアセット情報と一緒に保持します（テキストだけを別のプロジェクトにコピーした場合は引き継ぎません）。Blocklyで完全に表現できない構文は、コード保護のため「コードに反映」が無効になります。
+
+### ステージへの参照
+
+`stage.volume`、`Stage.volume`、`"Stage".volume`、`"stage".volume` は、通常はいずれもステージを参照します。実際に `stage` という名前のスプライトが存在する場合だけ、`"stage".x` はそのスプライトを参照します。予約語の `stage.volume` は常にステージを参照します。`stage` 単体は値ではないため使用できず、`.volume` などの値を指定します。インポート時も `stage` への参照は再解析できます。
+
+リストの `@show` / `@hide` に引数は指定できません。スライダーの最小値が最大値を超えた場合は警告します。インデントの最大100段には `stage` / `sprite` および `on` / `def` の本体も含みます（例: `stage` → `on flag` の内側に `if` は最大98段）。

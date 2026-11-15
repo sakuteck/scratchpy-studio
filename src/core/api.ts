@@ -5,22 +5,25 @@
  *
  *  - analyzeText(src)        : テキスト → 診断 + AST (+ エクスポート結果)
  *  - textToSb3(src, store)   : テキスト → .sb3 バイト列
- *  - sb3ToText(bytes)        : .sb3 バイト列 → テキスト + アセットストア + notes
+ *  - sb3ToText(bytes, lang?) : .sb3 バイト列 → テキスト + アセットストア + notes (lang は生成コード内コメントの言語)
+ *  - formatText(src, lang?)  : 正準形への整形 (lang は未対応ブロックのコメント言語)
  *  - roundTripSb3(bytes)     : .sb3 → テキスト → .sb3 (テスト用)
  */
 
+import { diag, diagnosticFields } from './lang/diagnostics';
 import { Program, Diagnostic } from './lang/ast';
 import { parse, parseCollect } from './lang/parser';
 import { check, CheckResult } from './lang/typechecker';
 import { printProgram } from './lang/printer';
 import { exportProgram, ExportResult, ExportError, AssetStore, emptyAssetStore } from './sb3/exporter';
 import { importProject, ImportResult } from './sb3/importer';
-import { loadSb3, saveSb3, Sb3ParseError } from './sb3/zip';
+import { loadSb3, saveSb3, saveSb3Report, Sb3ParseError } from './sb3/zip';
 import { validateProject, ValidationIssue } from './sb3/validate';
 import { SB3Project } from './sb3/model';
 
 export type { Program, Diagnostic, CheckResult, AssetStore, ExportResult as _ER, SB3Project, ValidationIssue };
-export { ExportError, Sb3ParseError, emptyAssetStore };
+export { ExportError, emptyAssetStore } from './sb3/exporter';
+export { Sb3ParseError, MAX_SB3_BYTES, MAX_SB3_ENTRIES, MAX_SB3_UNZIPPED, MAX_PROJECT_JSON_BYTES, assertSb3Size, formatMb } from './sb3/zip';
 
 export interface TextAnalysis {
   program: Program | null;
@@ -83,7 +86,7 @@ export function analyzeText(src: string): TextAnalysis {
         result.exportDiagnostics = e.diagnostics;
         result.diagnostics = [...result.diagnostics, ...e.diagnostics];
       } else {
-        result.diagnostics.push({ severity: 'error', message: `エクスポート中に内部エラー: ${(e as Error).message}`, code: 'internal' });
+        result.diagnostics.push({ severity: 'error', ...diagnosticFields(diag('internal.export', {p0:(e as Error).message}), 'internal') });
       }
     }
   }
@@ -100,10 +103,22 @@ export function textToSb3(src: string, store: AssetStore = emptyAssetStore()): {
   const validation = validateProject(exp.project, exp.assets);
   const hardErrors = validation.filter(v => v.severity === 'error');
   if (hardErrors.length) {
-    throw new ExportError(hardErrors.map(v => ({ severity: 'error' as const, message: `[構造検証] ${v.path}: ${v.message}` })));
+    throw new ExportError(hardErrors.map(v => ({ severity: 'error' as const, code:v.code, params:v.params, message:`[構造検証] ${v.path}: ${v.message}`, path:v.path })));
   }
-  const bytes = saveSb3(exp.project, exp.assets);
-  return { bytes, project: exp.project, assets: exp.assets, diagnostics: exp.diagnostics, validation };
+  const saved = saveSb3Report(exp.project, exp.assets);
+  // 安全でない名前のアセットは書き出さないが、無言では捨てない（P2-3）。
+  // 1 件ずつ警告にする（区切り文字を言語に合わせる必要がない＝EN に「、」が混ざらない）。
+  const skippedDiagnostics: Diagnostic[] = saved.skipped.slice(0, 5).map(name => ({
+    severity: 'warning' as const,
+    ...diagnosticFields(diag('export.assetNameSkipped', { p0: name.slice(0, 60) }), 'export'),
+  }));
+  if (saved.skipped.length > 5) {
+    skippedDiagnostics.push({
+      severity: 'warning',
+      ...diagnosticFields(diag('export.assetNameSkippedMore', { p0: String(saved.skipped.length - 5) }), 'export'),
+    });
+  }
+  return { bytes: saved.bytes, project: exp.project, assets: exp.assets, diagnostics: [...exp.diagnostics, ...skippedDiagnostics], validation };
 }
 
 export interface Sb3ImportResult {
@@ -111,32 +126,48 @@ export interface Sb3ImportResult {
   program: Program;
   assetStore: AssetStore;
   notes: string[];
+  notesEn: string[];
   unsupportedOpcodes: Record<string, number>;
   project: SB3Project;
 }
 
 /** .sb3 バイト列 → ScratchPy テキスト */
-export function sb3ToText(bytes: Uint8Array): Sb3ImportResult {
+export function sb3ToText(bytes: Uint8Array, language: 'ja' | 'en' = 'ja'): Sb3ImportResult {
+  try { return sb3ToTextInner(bytes, language); }
+  catch (e) {
+    // 外部由来の .sb3 で内部例外が表に出ないよう、最後の網をここに置く。
+    if (e instanceof Sb3ParseError) throw e;
+    if (e instanceof RangeError) throw new Sb3ParseError(diag('api.depth'));
+    throw new Sb3ParseError(diag('sb3.unknown'));
+  }
+}
+function sb3ToTextInner(bytes: Uint8Array, language: 'ja' | 'en'): Sb3ImportResult {
   const { project, files } = loadSb3(bytes);
-  const imp: ImportResult = importProject(project, files);
-  const text = printProgram(imp.program);
+  let imp: ImportResult;
+  let text: string;
+  try { imp = importProject(project, files, language); text = printProgram(imp.program, language); }
+  catch (e) {
+    if (e instanceof RangeError) throw new Sb3ParseError(diag('api.depth'));
+    throw e;
+  }
   return {
     text,
     program: imp.program,
     assetStore: imp.assetStore,
     notes: imp.notes,
+    notesEn: imp.notesEn,
     unsupportedOpcodes: imp.unsupportedOpcodes,
     project,
   };
 }
 
 /** テキスト → 整形(canonical 化) */
-export function formatText(src: string): { text: string; diagnostics: Diagnostic[] } {
+export function formatText(src: string, language: 'ja' | 'en' = 'ja'): { text: string; diagnostics: Diagnostic[] } {
   const { program, diagnostics } = parseCollect(src);
   if (!program || diagnostics.some(d => d.severity === 'error')) {
     return { text: src, diagnostics };
   }
-  return { text: printProgram(program), diagnostics };
+  return { text: printProgram(program, language), diagnostics };
 }
 
 /** .sb3 → テキスト → .sb3 のラウンドトリップ(テスト用) */
@@ -159,4 +190,4 @@ export function roundTripText(src: string): { text1: string; text2: string; note
   return { text1: src, text2: imp.text, notes: imp.notes };
 }
 
-export { parse, parseCollect, check, printProgram, exportProgram, importProject, loadSb3, saveSb3, validateProject };
+export { parse, parseCollect, check, printProgram, exportProgram, importProject, loadSb3, saveSb3, saveSb3Report, validateProject };

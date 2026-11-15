@@ -1,3 +1,4 @@
+import { diag, diagnosticFields, type DiagnosticMessage } from './diagnostics';
 /**
  * ScratchPy レキサ(字句解析器)
  * -----------------------------
@@ -38,10 +39,11 @@ const IDENT_START = /[\p{L}\p{Nl}_]/u;
 const IDENT_PART = /[\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}_‿]/u;
 
 export class LexError extends Error {
-  line: number; col: number;
-  constructor(message: string, line: number, col: number) {
-    super(message);
-    this.line = line; this.col = col;
+  line: number; col: number; code?: string; params?: import('./diagnostics').DiagnosticParams;
+  constructor(input: string | DiagnosticMessage, line: number, col: number) {
+    const fields = diagnosticFields(input, 'lex');
+    super(fields.message);
+    this.line = line; this.col = col; this.code = fields.code; this.params = fields.params;
   }
 }
 
@@ -77,6 +79,7 @@ export function tokenize(src: string, keepComments = false): Token[] {
       if (!blank) {
         const top = indentStack[indentStack.length - 1];
         if (indent > top) {
+          if (indentStack.length >= 101) throw new LexError(diag("lex.indentDepth", {}), lineNo, 1);
           indentStack.push(indent);
           tokens.push({ kind: 'indent', value: '', raw: '', line: lineNo, col: 1, endCol: indent + 1 });
         } else {
@@ -85,7 +88,7 @@ export function tokenize(src: string, keepComments = false): Token[] {
             tokens.push({ kind: 'dedent', value: '', raw: '', line: lineNo, col: 1, endCol: 1 });
           }
           if (indent !== indentStack[indentStack.length - 1]) {
-            throw new LexError('インデントが揃っていません', lineNo, 1);
+            throw new LexError(diag("lex.indent", {}), lineNo, 1);
           }
         }
       }
@@ -110,6 +113,7 @@ export function tokenize(src: string, keepComments = false): Token[] {
       const startCol = col;
       const ch = line[col];
       if (ch === ' ' || ch === '\t') { col++; continue; }
+      if (/\s/u.test(ch)) throw new LexError(diag("lex.fullWidthSpace", {}), lineNo, startCol + 1);
       if (ch === '#') {
         const text = line.slice(col + 1);
         if (keepComments) emit('comment', text, line.slice(col), startCol);
@@ -133,18 +137,17 @@ export function tokenize(src: string, keepComments = false): Token[] {
           val += c;
           col++;
         }
-        if (!closed) throw new LexError('文字列が閉じられていません', lineNo, startCol + 1);
+        if (!closed) throw new LexError(diag("lex.string", {}), lineNo, startCol + 1);
         emit('string', val, line.slice(startCol, col), startCol);
         continue;
       }
       if (isDigit(ch) || (ch === '.' && isDigit(line[col + 1] ?? ''))) {
-        let num = '';
-        while (col < line.length && /[0-9._]/.test(line[col])) {
-          if (line[col] !== '_') num += line[col];
-          col++;
-        }
-        if (!/^-?[\d.]+$/.test(num)) throw new LexError(`不正な数値: ${num}`, lineNo, startCol + 1);
-        emit('number', num, line.slice(startCol, col), startCol);
+        const match = line.slice(col).match(/^(?:(?:[0-9][0-9_]*)(?:\.[0-9_]*)?|\.[0-9][0-9_]*)(?:[eE][+-]?[0-9][0-9_]*)?/);
+        if (!match) throw new LexError(diag("lex.number", {}), lineNo, startCol + 1);
+        col += match[0].length;
+        const num = match[0].replace(/_/g, '');
+        if (!Number.isFinite(Number(num))) throw new LexError(diag("lex.numberLarge", {p0: String(num)}), lineNo, startCol + 1);
+        emit('number', num, match[0], startCol);
         continue;
       }
       if (isIdentStart(ch)) {
@@ -162,12 +165,12 @@ export function tokenize(src: string, keepComments = false): Token[] {
       }
       const one = line[col];
       if (OPS.includes(one)) {
-        if (one === '(' || one === '[') parenDepth++;
+        if (one === '(' || one === '[') { if (parenDepth >= 200) throw new LexError(diag("lex.expressionDepth", {}), lineNo, startCol + 1); parenDepth++; }
         if (one === ')' || one === ']') parenDepth = Math.max(0, parenDepth - 1);
         const kind = '()[]{},:.@'.includes(one) ? 'punct' : 'op';
         emit(kind, one, one, startCol); col++; continue;
       }
-      throw new LexError(`予期しない文字: '${one}'`, lineNo, startCol + 1);
+      throw new LexError(diag("lex.unexpectedChar", {p0: String(one)}), lineNo, startCol + 1);
     }
     if (parenDepth === 0) {
       emit('newline', '\\n', '\\n', line.length);

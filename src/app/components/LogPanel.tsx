@@ -1,4 +1,4 @@
-import { EN, t } from '../i18n';
+import { t } from '../i18n';
 
 export interface LogEntry {
   id: number;
@@ -35,7 +35,6 @@ export default function LogPanel({ entries, onClear }: Props) {
         </div>
       ) : (
         <div className="log-list">
-          {EN && <p className="english-note">Detailed conversion notes may appear in Japanese.</p>}
           {entries.map(e => (
             <div key={e.id} className="log-entry">
               <div className="head">

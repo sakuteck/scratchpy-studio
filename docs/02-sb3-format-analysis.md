@@ -500,7 +500,7 @@ size, volume, backdrop #, backdrop name, tempo
 
 ```json
 {
-  "id": "sensing_timer",        // opcode がそのまま ID
+  "id": "timer",                // Scratch の標準タイマーモニター ID
   "mode": "default",
   "opcode": "sensing_timer",
   "params": {},
@@ -601,4 +601,4 @@ Scratch エディタの「コメント」機能(ブロックに紐づく吹き�
 - scratch-vm 本体: https://github.com/scratchfoundation/scratch-vm
   - ブロック定義: `src/blocks/scratch3_*.js`
   - 拡張定義: `src/extensions/scratch3_*/index.js`
-- 本リポジトリの解析用フィクスチャ: `research/*.sb3`(scratch-vm / TurboWarp 公式テストより)
+- 本リポジトリの解析用フィクスチャ: `src/tests/fixtures/*.sb3`(scratch-vm / TurboWarp 公式テストより)

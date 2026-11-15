@@ -36,15 +36,18 @@
         共有: ast.ts(型定義)/ builtins.ts(ブロックカタログ)/ md5.ts / assets.ts
 ```
 
-**外部依存は最小限**です:
+主な依存と役割:
 
 | 依存 | 用途 |
 |---|---|
 | react / react-dom | UI |
-| fflate | ZIP の解凍・圧縮(.sb3 の読み書き)。**これだけ** |
+| fflate | ZIP の解凍・圧縮(.sb3 の読み書き) |
+| Blockly | ブロックエディター |
+| react-markdown / remark-gfm / rehype-slug | ガイドの描画 |
+| TurboWarp Scaffolding | サンドボックス内の Scratch 実行プレビュー（Scratch VM 等を含む） |
 | vite / vitest / typescript | ビルド・テスト(開発時) |
 
-scratch-vm には依存しません。MD5 も自前実装(`md5.ts`)で、Node 環境なしにブラウザで完結します。
+変換コア自体は Scratch VM を使わず、ブラウザ内で動作します。実行プレビューには TurboWarp の実行エンジンを使用します。MD5 は自前実装(`md5.ts`)です。
 
 ---
 
@@ -55,20 +58,36 @@ scratchpy-studio/
 ├── index.html                  # エントリ HTML
 ├── package.json / tsconfig.json / vite.config.ts
 ├── docs/                       # この文書群(01〜05 + README)
-├── research/                   # 形式解析に使用した実 .sb3 フィクスチャ
-├── public/
+├── public/                     # Scratch ランナーと公開静的ファイル
+├── scripts/                    # ビルド・プレビュー起動
 └── src/
     ├── main.tsx                # React エントリ
     ├── app/
     │   ├── App.tsx             # 状態管理・イベントハンドラ
-    │   ├── styles.css
+    │   ├── styles.css          # 全体スタイル（--mode-* のカラーモードを含む）
+    │   ├── theme.ts            # カラーモードの定義・適用・保存（6 種類）
+    │   ├── i18n.ts             # t(日本語, English) ヘルパー
+    │   ├── diagnosticText.ts   # 診断コードの英語化
+    │   ├── studioDraft.ts      # IndexedDB の下書き保存・復元
+    │   ├── ai/
+    │   │   └── agent.ts        # AI チューター（役割定義・文脈・サニタイズ）
+    │   ├── blockly/
+    │   │   ├── bridge.ts       # Blockly ⇔ ScratchPy テキストの相互変換
+    │   │   ├── defs.ts         # ブロック定義
+    │   │   └── messages.ts     # ブロックのラベル・ツールチップ（日英）
     │   └── components/
     │       ├── Editor.tsx          # 行番号付きコードエディタ
+    │       ├── BlocklyPanel.tsx
+    │       ├── AgentPanel.tsx      # AI チューター
     │       ├── DiagnosticsPanel.tsx
     │       ├── StructurePanel.tsx
     │       ├── JsonPanel.tsx
     │       ├── LogPanel.tsx
+    │       ├── ScratchPlayer.tsx   # 実行プレビュー（sandbox iframe）
+    │       ├── GuidePage.tsx / EnglishGuide.tsx
+    │       ├── EditionMenu.tsx / Icons.tsx
     │       └── StatusBar.tsx
+    ├── education/              # Education 版日英 UI・レッスン（配色は固定）
     ├── core/
     │   ├── api.ts              # ファサード(analyzeText/textToSb3/sb3ToText/formatText)
     │   ├── samples.ts          # UI 内蔵サンプル 4 本
@@ -90,8 +109,8 @@ scratchpy-studio/
     └── tests/
         ├── smoke.test.ts       # サンプル 4 本の解析 + 固定点ラウンドトリップ
         ├── unit.test.ts        # MD5/レキサ/パーサ/型チェッカのユニット
-        ├── real-sb3.test.ts    # 実 .sb3 12 ファイルの往復・保存性
-        └── testdata/*.sb3      # 公式フィクスチャ
+        ├── real-sb3.test.ts    # 実 .sb3 ファイルの往復・保存性
+        └── fixtures/           # テスト・形式解析用の .sb3 と JSON
 ```
 
 ---
@@ -224,8 +243,8 @@ UI・テストはここだけを見ます:
 |---|---|
 | `analyzeText(src)` | 字句+構文+型+統計+(型 OK なら)project.json プレビュー |
 | `textToSb3(src, store?)` | テキスト → .sb3 バイト列(検証込み) |
-| `sb3ToText(bytes)` | .sb3 → テキスト + AssetStore + notes |
-| `formatText(src)` | 正準形への整形 |
+| `sb3ToText(bytes, lang?)` | .sb3 → テキスト + AssetStore + notes。`lang` は生成コード内コメント（孤立/未対応/定義なしブロック）の言語で、既定は日本語 |
+| `formatText(src, lang?)` | 正準形への整形（`lang` は未対応ブロックのコメント言語） |
 | `roundTripSb3 / roundTripText` | テスト用往復ヘルパ |
 
 ---
@@ -288,9 +307,37 @@ StatusBar       : エラー・警告数 / 統計 / カーソル位置 / ファ�
 - **ライブ解析**: 入力 300ms 後に analyzeText(構文+型+JSON プレビューまで)を実行。
 - **アセット保持**: .sb3 を読み込むと AssetStore に元画像・音声を保持し、書き出し時に
   同じコスチューム名・音名なら**元バイト列をそのまま**再使用(MD5 不変)。
-- プレビュー環境対応: 開発サーバは 0.0.0.0 バインド。変換自体は外部リソース不要。通常版のAIアシスタントとEducation版のAI学習サポートは、同意とAPIキーによる外部通信が必要。Education版の会話・レッスン情報・言語仕様は送信され、コードと診断は利用者が明示的に選択した場合のみ送信。画像・音声のバイト列は送信しない。
+- プレビュー環境対応: 開発サーバは 0.0.0.0 バインド。変換自体は外部リソース不要。通常版のAIチューター（説明専用）とEducation版のAI学習サポートは、同意とAPIキーによる外部通信が必要。通常版は質問・コード先頭12,000文字・ローカル診断・直近4往復を送信し、Education版は会話・レッスン情報・言語仕様を送信、コードと診断は利用者が明示的に選択した場合のみ送信。画像・音声のバイト列は送信しない。`allowedHosts` はローカルホストと `PREVIEW_HOST` のみを許可する。
 
 ---
+
+## 6.5 AI チューターの構成（説明専用）
+
+| 要素 | 役割 |
+|---|---|
+| `src/app/ai/agent.ts` | 3社のAPIアダプタ（`requestModel`）、役割定義＋設計図（`TUTOR_ROLE` / `SYSTEM_PROMPT`）、文脈の組み立て（`buildTutorContext`）、出力の最終網（`sanitizeTutorReply`）、1往復の問い合わせ（`askTutor`） |
+| `src/app/components/AgentPanel.tsx` | 設定（プロバイダー・モデル・キー・同意）、質問、会話表示。生成・適用・取り消しの状態は持たない |
+| `docs/01-scratchpy-language.md` | プロンプトに `?raw` で同梱する言語仕様書（実行時にも同じ内容を参照） |
+| `diagnosticLines()` | 構文・型・.sb3 検証の結果を、UI言語に合わせたテキストへ整形して文脈に含める |
+
+- **1質問1リクエスト**。自動修正ループ（旧 `runAgent` の最大3試行）は撤去しました。
+- 出力の最終網：12行超、または `stage:` / `sprite` 宣言を含むフェンスは表示せず、説明用の案内へ置換します。プロンプトの制約と二重に効かせています。
+- 送信前検査：`MAX_MESSAGE_CHARS`（4,000文字）超過、コードや質問へのAPIキー混入、非セキュアコンテキストでは送信しません。
+
+## 6.6 入力境界のセキュリティ
+
+| 境界 | 上限・方針 |
+|---|---|
+| 配色の初期適用 | `public/theme-init.js`（同一オリジンの外部スクリプト）が `localStorage['sp-color-mode']` を読み、本体 JS の実行前に `data-theme` / `data-palette` / `color-scheme` を設定。CSP は `script-src 'self'` のままで、インラインスクリプトもハッシュも不要 |
+| 実行エンジン | Vite のビルドで `engine/scaffolding.js` を必ず出力（`vite.config.ts` の `scratchpy-engine` プラグイン）。アプリは `BASE_URL` 基準＋`?v=<version>` で読み、単独ビルドでも動く。統合ビルドのみ 4 版が 1 コピーを共有 |
+| 配信ヘッダの構造 | `public/_headers` は「全パス共通」「アプリ文書 6 パス」「`/scratch-runner/*`」「`/assets/*`」「`/engine/*`」に分割。同じヘッダを 2 つの規則に書かない（Cloudflare は同名ヘッダをカンマ連結するため、重なると本番で実行 iframe が拒否される）。`npm run check:headers` で検査 |
+| `.sb3`（ZIP） | 圧縮後 50 MB・エントリ 2,000 件・展開後 64 MB・`project.json` 8 MB。`fflate` の `filter` で展開しながら積算し、超過時点で例外。`zip.tooLarge` / `zip.tooManyEntries` / `zip.expandsTooMuch` / `zip.projectJsonTooLarge` を日英表示。安全でない名前のアセットは書き出さず `export.assetNameSkipped` で通知 |
+| テキスト | 50,000 行 / 2 MB。`parseCollect` の入口で `text.tooLarge` を返し、同期パースで UI を固めない |
+| 想定外例外 | `sb3ToText` の最上位で `Sb3ParseError` に包み、内部の `TypeError` 文言を出さない |
+| 書き出し | `Object.create(null)` とアセット名検証。`__proto__` 等は書き出さない |
+| 配信 | `public/_headers` の CSP・`X-Frame-Options`・`Permissions-Policy`。runner は `frame-ancestors 'self'` |
+| 実行 sandbox | `allow-scripts` のみ（不透明オリジン）、拡張セキュリティ 11 フラグ、親オリジン検証 |
+| 開発サーバ | `allowedHosts` はローカルホスト＋`PREVIEW_HOST` のみ（`true` を使わない） |
 
 ## 7. テスト戦略
 

@@ -1,3 +1,64 @@
+# Cloudflare Pages の配信ヘッダ。
+#
+# 重要: Pages は「一致する規則をすべて適用」し、同じ名前のヘッダを 2 回書くと
+# 「上書き」ではなく **カンマ連結** する（`! Name` で外せるが、適用順に依存する）。
+# そのため CSP と X-Frame-Options は、重ならないパス群ごとに 1 回だけ書く。
+#   - アプリの HTML 文書（アプリ用 CSP / frame-ancestors 'none'）
+#   - /scratch-runner/*（実行用 CSP / frame-ancestors 'self'）
+# ここが重なると `frame-ancestors 'none', 'self'` になり、本番だけで
+# 実行 iframe が拒否される（ローカルでは再現しない）。
+# 検証: scripts/check-headers.mjs（重複 0 / 順序を変えても同じ結果）
+
+# すべてのパスに共通のヘッダ。
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: accelerometer=(), ambient-light-sensor=(), autoplay=(self), camera=(), display-capture=(), encrypted-media=(), fullscreen=(self), geolocation=(), gyroscope=(), hid=(), idle-detection=(), keyboard-map=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), serial=(), usb=(), xr-spatial-tracking=()
+  Cross-Origin-Opener-Policy: same-origin
+  # COEP: credentialless の文書（実行サンドボックス）から自サイトの静的ファイルを読めるようにする。
+  # allow-same-origin なしの iframe は不透明オリジンになり、同一 URL でも cross-origin 扱いになる。
+  Cross-Origin-Embedder-Policy: credentialless
+
+# アプリの HTML 文書。
+# 列挙しすぎると「書き忘れたパスだけ無防備」になるため、**版のディレクトリ単位**で広く当てる。
+#   /               … Studio 日本語（/ と /index.html）
+#   /en/*           … Studio 英語（/en/ と /en/index.html と配下）
+#   /education/*    … Education 日本語・英語（/education/ も /education/en/ も配下も）
+# この 3 つは互いに重ならないので、CSP がカンマ連結されることはない。
+# 新しい版やページを足したときは scripts/check-headers.mjs が
+# dist の実ファイルから「ヘッダの無い HTML」を探して失敗する。
+/
+/index.html
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com; worker-src 'self' blob:; frame-src 'self'; child-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+
+/en/*
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com; worker-src 'self' blob:; frame-src 'self'; child-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+
+/education/*
+  Content-Security-Policy: default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com; worker-src 'self' blob:; frame-src 'self'; child-src 'self'; manifest-src 'self'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+
+# 実行サンドボックス: 自サイトからのみ埋め込める。
+# script-src の 'unsafe-eval' は TurboWarp (Scratch VM) が要求するもので、
+# 不透明オリジン（allow-same-origin なし）の iframe 内に閉じているため許容する。
+# public/scratch-runner/index.html は meta CSP も持つので、両方が満たされる必要がある
+# （そのため、ここでは meta と同じ内容を配る）。
+/scratch-runner/*
+  Content-Security-Policy: default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'; script-src 'self' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src data: blob:; worker-src blob:; frame-src 'none'; child-src 'none'
+  X-Frame-Options: SAMEORIGIN
+  # 不透明オリジンの iframe から読み込むため same-site では弾かれる。
+  Cross-Origin-Resource-Policy: cross-origin
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+  # COEP: credentialless の文書から読み込めるように CORP を明示する。
+  Cross-Origin-Resource-Policy: cross-origin
+
+# 実行エンジン（4 版で共有する 1 コピー）。
+# 名前はハッシュ付きではないので長期 immutable にはせず、1 日だけキャッシュする
+# （アプリは `?v=<version>` を付けて呼ぶので、リリース直後も新しい版が届く）。
+/engine/*
+  Cache-Control: public, max-age=86400
+  Cross-Origin-Resource-Policy: cross-origin

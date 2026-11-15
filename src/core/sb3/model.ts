@@ -156,8 +156,8 @@ export const HAT_OPCODES = new Set([
 /** ブロックが値を返すレポータかどうかの簡易判定(opcode 命名規則 + 既知リスト) */
 export const KNOWN_REPORTERS = new Set([
   'motion_xposition', 'motion_yposition', 'motion_direction',
-  'looks_size', 'looks_costumenumber', 'looks_costumename',
-  'looks_backdropnumber', 'looks_backdropname',
+  'looks_size', 'looks_costumenumber', 'looks_costumename', 'looks_costumenumbername',
+  'looks_backdropnumber', 'looks_backdropname', 'looks_backdropnumbername',
   'sound_volume',
   'sensing_touchingobject', 'sensing_touchingcolor', 'sensing_coloristouchingcolor',
   'sensing_distanceto', 'sensing_answer', 'sensing_keypressed', 'sensing_mousedown',

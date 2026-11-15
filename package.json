@@ -1,9 +1,9 @@
 {
   "name": "scratchpy-studio",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
-  "description": "Scratch(.sb3) ⇔ ScratchPy(独自言語) 相互変換スタジオ",
+  "description": "ScratchPy Studio — Scratch 3 (.sb3) と ScratchPy を双方向変換する初心者向け Web ツール（Studio / Education、日英）",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "tsc -b && node scripts/build-pages.mjs",
@@ -13,18 +13,29 @@
     "dev:ja": "vite --host 0.0.0.0 --port 5173 --strictPort",
     "dev:en": "VITE_APP_LANGUAGE=en vite --host 0.0.0.0 --port 5174 --strictPort",
     "start:both": "bash scripts/start-both.sh",
-    "build:en": "VITE_APP_LANGUAGE=en tsc -b && VITE_APP_LANGUAGE=en vite build --outDir dist-en",
+    "build:en": "VITE_APP_LANGUAGE=en tsc -b && VITE_APP_LANGUAGE=en VITE_APP_BASE=${VITE_APP_BASE:-./} vite build --outDir artifacts/en",
     "dev:education": "VITE_APP_EDUCATION=true vite --host 0.0.0.0 --port 5175 --strictPort",
-    "build:education": "VITE_APP_EDUCATION=true tsc -b && VITE_APP_EDUCATION=true vite build --outDir dist-education",
+    "build:education": "VITE_APP_EDUCATION=true tsc -b && VITE_APP_EDUCATION=true VITE_APP_BASE=${VITE_APP_BASE:-./} vite build --outDir artifacts/education",
     "start:education": "bash scripts/start-education.sh",
     "start:all": "bash scripts/start-all.sh",
     "dev:education:en": "VITE_APP_EDUCATION=true VITE_APP_LANGUAGE=en vite --host 0.0.0.0 --port 5176 --strictPort",
-    "build:education:en": "VITE_APP_EDUCATION=true VITE_APP_LANGUAGE=en tsc -b && VITE_APP_EDUCATION=true VITE_APP_LANGUAGE=en vite build --outDir dist-education-en",
+    "build:education:en": "VITE_APP_EDUCATION=true VITE_APP_LANGUAGE=en tsc -b && VITE_APP_EDUCATION=true VITE_APP_LANGUAGE=en VITE_APP_BASE=${VITE_APP_BASE:-./} vite build --outDir artifacts/education-en",
     "start:education:en": "bash scripts/start-education-en.sh",
-    "build:ja": "tsc -b && vite build --outDir dist-ja",
+    "build:ja": "tsc -b && VITE_APP_BASE=${VITE_APP_BASE:-./} vite build --outDir artifacts/ja",
     "build:pages": "npm run build",
     "preview:pages": "vite preview --host 0.0.0.0 --port 4173 --strictPort",
-    "start:pages": "node scripts/start-pages.mjs"
+    "start:pages": "node scripts/start-pages.mjs",
+    "smoke": "node scripts/smoke-browser.cjs",
+    "check:headers": "node scripts/check-headers.mjs",
+    "check:contrast": "node scripts/check-contrast.cjs",
+    "check:colours": "node scripts/check-colour-modes.cjs",
+    "check:theme": "node scripts/check-theme-init.cjs",
+    "check": "node scripts/check-editions.mjs && node scripts/check-headers.mjs && node scripts/check-css-vars.mjs && vitest run",
+    "check:editions": "node scripts/check-editions.mjs",
+    "check:cssvars": "node scripts/check-css-vars.mjs",
+    "check:deploy": "node scripts/check-deploy.mjs",
+    "deploy": "npm run build && npx --yes wrangler@4 pages deploy dist --project-name scratchpy-studio --branch main",
+    "deploy:preview": "npm run build && npx --yes wrangler@4 pages deploy dist --project-name scratchpy-studio --branch preview"
   },
   "dependencies": {
     "@turbowarp/scaffolding": "0.4.0",
@@ -37,17 +48,28 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@types/node": "^20.19.43",
+    "@types/node": "^22.0.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.3.0",
+    "fake-indexeddb": "^6.2.8",
+    "playwright": "^1.65.0",
     "typescript": "^5.6.3",
-    "vite": "^5.4.11",
-    "vitest": "^2.1.8"
+    "vite": "^8.3.7",
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "@turbowarp/scaffolding": {
       "@turbowarp/types": "0.0.15"
     }
-  }
+  },
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ukprmenbersaku-abc/scratchpy-studio.git"
+  },
+  "homepage": "https://github.com/ukprmenbersaku-abc/scratchpy-studio#readme"
 }

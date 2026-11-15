@@ -43,7 +43,9 @@ export interface Diagnostic {
   severity: Severity;
   message: string;   // 日本語メッセージ
   loc?: Loc;
-  code?: string;
+  code: string;
+  params?: import('./diagnostics').DiagnosticParams;
+  path?: string; // validation path when available
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +160,7 @@ export interface VarDecl {
   varType: SPType;
   init: Expr;
   cloud: boolean;
-  monitor?: { mode: MonitorMode; min?: number; max?: number; visible: boolean };
+  monitor?: { mode: MonitorMode; min?: number; max?: number; isDiscrete?: boolean; visible: boolean };
   loc?: Loc;
 }
 

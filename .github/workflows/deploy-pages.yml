@@ -1,0 +1,63 @@
+name: Deploy to Cloudflare Pages
+# main への push と、`v*` タグの push で「4 版ビルド → Cloudflare Pages へ配信 →
+# 実際に配信されたもののヘッダを検査」までを 1 ジョブで行う。
+#
+# 必要なリポジトリシークレット（Settings → Secrets and variables → Actions）:
+#   CLOUDFLARE_API_TOKEN   … 「Cloudflare Pages:Edit」権限のトークン
+#   CLOUDFLARE_ACCOUNT_ID  … Cloudflare のアカウント ID
+# 変数（Variables、任意）:
+#   CF_PAGES_PROJECT       … 既定は scratchpy-studio
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # タグの付け替えに追従しないよう commit SHA で固定する（ci.yml と同じ方針）
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci --ignore-scripts
+
+      # 配信物は「テストが通ったもの」だけにする
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Tests
+        run: npm test
+      - name: Build all four editions
+        run: npm run build
+      - name: Check editions and headers
+        run: |
+          npm run check:editions
+          npm run check:headers
+
+      # Cloudflare Pages への配信。`dist/` がそのまま公開ディレクトリになる。
+      # `_headers` は dist に同梱済み（ビルド時に 1 コピーへ統合している）。
+      - name: Deploy
+        id: deploy
+        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c6b496c15f # v3.14.1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ vars.CF_PAGES_PROJECT || 'scratchpy-studio' }} --branch=${{ github.ref_type == 'tag' && github.ref_name || 'main' }}
+
+      # 本物のレスポンスでヘッダと 404 を確認する（「上がったのに CSP が無い」を防ぐ）
+      - name: Verify the deployed site
+        run: npm run check:deploy -- "${{ steps.deploy.outputs.deployment-url }}"

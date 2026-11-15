@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import * as Blockly from 'blockly';
 import { parseCollect } from '../../core/lang/parser';
 import { check } from '../../core/lang/typechecker';
 import { printProgram } from '../../core/lang/printer';
 import { registerScratchPyBlocks, makeTheme, makeToolbox } from '../blockly/defs';
 import { astToWorkspace, workspaceToAst, currentUserCallTypes } from '../blockly/bridge';
+import { englishBridgeError } from '../blockly/messages';
 import { EN, t } from '../i18n';
 import { IconZoomIn, IconZoomOut, IconZoomFit, IconRefresh, IconAlertTriangle, IconCheckCircle } from './Icons';
 
@@ -20,7 +21,15 @@ interface Props {
   readOnly?: boolean;
 }
 
-export function BlocklyPanel({ text, dark, active, onTextChange, onDirtyChange, education = false, readOnly = false }: Props) {
+/** 画面切り替え時に「未反映の変更」を反映できるように、外から 1 つだけ操作を許す（診断 N2）。 */
+export interface BlocklyPanelHandle {
+  /** 「コードに反映」を試みる。成功したら true（失敗の理由はパネル内に表示される）。 */
+  applyToCode(): boolean;
+  /** 未反映の編集を捨てて、いまのコードからブロックを作り直す。 */
+  reloadFromText(): void;
+}
+
+export const BlocklyPanel = forwardRef<BlocklyPanelHandle, Props>(function BlocklyPanel({ text, dark, active, onTextChange, onDirtyChange, education = false, readOnly = false }: Props, ref) {
   const hostRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const baseRef = useRef('');
@@ -59,7 +68,7 @@ export function BlocklyPanel({ text, dark, active, onTextChange, onDirtyChange, 
       setConflict(false);
       requestAnimationFrame(() => { Blockly.svgResize(ws); });
     } catch (ex) {
-      setMessage(EN ? `Could not load blocks; the source was not changed. Details: ${(ex as Error).message}` : `ブロックを読み込めません: ${(ex as Error).message}。元のコードは変更されていません。`);
+      setMessage(EN ? `Could not load blocks; the source was not changed. Details: ${englishBridgeError(ex)}` : `ブロックを読み込めません: ${(ex as Error).message}。元のコードは変更されていません。`);
     } finally {
       Blockly.Events.enable();
     }
@@ -69,6 +78,8 @@ export function BlocklyPanel({ text, dark, active, onTextChange, onDirtyChange, 
     if (!hostRef.current) return;
     const ws = Blockly.inject(hostRef.current, {
       toolbox: readOnly ? undefined : makeToolbox(), readOnly, renderer: 'zelos', theme: makeTheme(false),
+      // 画像・カーソルを自ホストから読む（外部ドメインへは取りに行かない）。
+      media: `${import.meta.env.BASE_URL}blockly-media/`,
       grid: { spacing: 24, length: 2, colour: '#dfe3ef', snap: false },
       zoom: { controls: false, wheel: true, startScale: 0.85, minScale: 0.3, maxScale: 2, pinch: true },
       trashcan: !readOnly, sounds: false, move: { scrollbars: true, drag: true, wheel: false },
@@ -110,35 +121,51 @@ export function BlocklyPanel({ text, dark, active, onTextChange, onDirtyChange, 
     if (dirtyRef.current && !window.confirm(t('未反映のブロック編集を破棄してコードから再読み込みしますか？', 'Discard uncommitted block edits and reload from code?'))) return;
     if (wsRef.current) load(text, wsRef.current);
   };
-  const apply = () => {
+  const apply = (): boolean => {
     const ws = wsRef.current;
-    if (!ws || !safeRef.current || conflict || text !== baseRef.current) return;
+    if (!ws || !safeRef.current || conflict || text !== baseRef.current) return false;
     try {
       const top = ws.getTopBlocks(false);
       const loose = top.filter(b => !['sp_stage', 'sp_sprite', 'sp_comment'].includes(b.type));
       if (loose.length) {
         setMessage(t('未接続のブロックがあります。ステージまたはスプライト内につなぐか、削除してから反映してください。', 'Connect or delete the loose blocks before applying.'));
-        return;
+        return false;
       }
       if (top.filter(b => b.type === 'sp_stage').length > 1) {
         setMessage(t('ステージは1つだけにしてください。', 'Only one stage is allowed.'));
-        return;
+        return false;
       }
       const out = printProgram(workspaceToAst(ws));
       const parsed = parseCollect(out);
       if (!parsed.program || parsed.diagnostics.some(d => d.severity === 'error')) {
         setMessage(t('ブロックから有効なコードを生成できません。入力内容や接続を確認してください。', 'Could not generate valid code. Check block inputs and connections.'));
-        return;
+        return false;
       }
       baseRef.current = out;
       dirtyRef.current = false;
       setDirty(false);
       setMessage(education ? t('ブロックの変更をコードに反映したよ。右のコードを見てみよう！', 'Block changes applied. Take a look at the code!') : t('ブロックの変更をコードに反映しました。診断タブで型を確認できます。', 'Changes applied to code. Check the Diagnostics tab for type errors.'));
       onTextChange(out);
+      return true;
     } catch (ex) {
-      setMessage(EN ? `Could not apply changes. Details: ${(ex as Error).message}` : `反映できません: ${(ex as Error).message}`);
+      setMessage(EN ? `Could not apply changes. Details: ${englishBridgeError(ex)}` : `反映できません: ${(ex as Error).message}`);
+      return false;
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    applyToCode: () => {
+      if (!dirtyRef.current) return true;      // 未反映の変更が無い
+      if (readOnly) return false;
+      apply();
+      return !dirtyRef.current;                // 反映できたかを同期で返す
+    },
+    reloadFromText: () => {
+      if (readOnly) return;
+      const ws = wsRef.current;
+      if (ws) load(text, ws);
+    },
+  }), [readOnly, text]);
 
   return (
     <div className="blockly-host" data-theme={dark ? 'dark' : 'light'}>
@@ -154,4 +181,4 @@ export function BlocklyPanel({ text, dark, active, onTextChange, onDirtyChange, 
       <div className="blockly-canvas" ref={hostRef} />
     </div>
   );
-}
+});

@@ -14,7 +14,7 @@ import { validateProject } from '../core/sb3/validate';
 import { md5Bytes } from '../core/sb3/md5';
 import { SB3Project } from '../core/sb3/model';
 
-const DATA = join(dirname(fileURLToPath(import.meta.url)), 'testdata');
+const DATA = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const files = readdirSync(DATA).filter(f => f.endsWith('.sb3'));
 
 function readSb3(name: string): Uint8Array {
@@ -64,7 +64,7 @@ describe('実 .sb3 ファイル: インポート → テキスト化', () => {
       expect(text.length).toBeGreaterThan(0);
       // 生成されたテキストは構文エラーなくパースできること
       const analysis = analyzeText(text);
-      const parseErrors = analysis.diagnostics.filter(d => d.code === 'parse' || d.code === 'lex');
+      const parseErrors = analysis.diagnostics.filter(d => d.code?.startsWith('parse.') || d.code?.startsWith('lex.') || d.code === 'parse' || d.code === 'lex');
       expect(parseErrors, `構文エラー:\n${text}`).toEqual([]);
     });
   }

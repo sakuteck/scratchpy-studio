@@ -11,18 +11,20 @@ import {
   SoundDecl, CommentStmt, PassStmt,
 } from './ast';
 
+import { KEYWORDS } from './lexer';
+
 const INDENT = '    ';
 
-export function printProgram(program: Program): string {
+export function printProgram(program: Program, language: 'ja' | 'en' = 'ja'): string {
   const out: string[] = [];
   for (const c of program.comments) out.push(`#${c.text}`);
   if (program.comments.length && (program.stage || program.sprites.length)) out.push('');
   if (program.stage) {
-    out.push(...printStage(program.stage));
+    out.push(...printStage(program.stage, language));
     if (program.sprites.length) out.push('');
   }
   program.sprites.forEach((sp, i) => {
-    out.push(...printSprite(sp));
+    out.push(...printSprite(sp, language));
     if (i < program.sprites.length - 1) out.push('');
   });
   out.push('');
@@ -35,28 +37,28 @@ function nameOrQuoted(name: string, quoted: boolean): string {
 }
 
 function needsQuote(name: string): boolean {
-  return !/^[\p{L}\p{Nl}_][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}_]*$/u.test(name);
+  return KEYWORDS.has(name) || !/^[\p{L}\p{Nl}_][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}_]*$/u.test(name);
 }
 
 function displayName(name: string, quoted: boolean): string {
-  return needsQuote(name) ? JSON.stringify(name) : (quoted ? name : name);
+  return quoted || needsQuote(name) ? JSON.stringify(name) : name;
 }
 
-function printStage(stage: StageDef): string[] {
+function printStage(stage: StageDef, language: 'ja' | 'en'): string[] {
   const out = [stage.name ? `stage ${displayName(stage.name, stage.quoted ?? false)}:` : 'stage:'];
-  const body = printBody(stage.body, 1);
+  const body = printBody(stage.body, 1, language);
   out.push(...(body.length ? body : [INDENT + 'pass']));
   return out;
 }
 
-function printSprite(sp: SpriteDef): string[] {
+function printSprite(sp: SpriteDef, language: 'ja' | 'en'): string[] {
   const out = [`sprite ${displayName(sp.name, sp.quoted)}:`];
-  const body = printBody(sp.body, 1);
+  const body = printBody(sp.body, 1, language);
   out.push(...(body.length ? body : [INDENT + 'pass']));
   return out;
 }
 
-function printBody(body: BodyItem[], depth: number): string[] {
+function printBody(body: BodyItem[], depth: number, language: 'ja' | 'en'): string[] {
   const out: string[] = [];
   const pad = INDENT.repeat(depth);
   const hasDecl = (b: BodyItem): b is Exclude<BodyItem, CommentStmt | PassStmt> => 'decl' in b;
@@ -77,13 +79,13 @@ function printBody(body: BodyItem[], depth: number): string[] {
   for (const d of defs) {
     if (!first) out.push('');
     first = false;
-    out.push(...printDef(d, depth));
+    out.push(...printDef(d, depth, language));
   }
   first = defs.length === 0 && (configs.length + vars.length + assets.length + comments.length) === 0;
   for (const e of events) {
     if (!first) out.push('');
     first = false;
-    out.push(...printEvent(e, depth));
+    out.push(...printEvent(e, depth, language));
   }
   // 実行可能要素がコメントだけの本体も pass を補って再パース可能にする
   if (!configs.length && !vars.length && !assets.length && !defs.length && !events.length) {
@@ -97,13 +99,10 @@ function printVarDecl(v: VarDecl | ListDecl): string {
     let s = `var ${displayName(v.name, v.quoted)}: ${typeToString(v.varType)} = ${printExpr(v.init)}`;
     if (v.cloud) s += ' @cloud';
     if (v.monitor) {
-      if (v.monitor.visible) {
-        if (v.monitor.mode === 'slider') s += ` @show(slider, ${v.monitor.min ?? 0}, ${v.monitor.max ?? 100})`;
-        else if (v.monitor.mode !== 'default') s += ` @show(${v.monitor.mode})`;
-        else s += ' @show';
-      } else {
-        s += ' @hide';
-      }
+      const annotation = v.monitor.visible ? 'show' : 'hide';
+      if (v.monitor.mode === 'slider') s += ` @${annotation}(slider, ${v.monitor.min ?? 0}, ${v.monitor.max ?? 100}${v.monitor.isDiscrete === false ? ', false' : ''})`;
+      else if (v.monitor.mode !== 'default') s += ` @${annotation}(${v.monitor.mode})`;
+      else s += ` @${annotation}`;
     }
     return s;
   } else {
@@ -113,21 +112,21 @@ function printVarDecl(v: VarDecl | ListDecl): string {
   }
 }
 
-function printDef(d: FuncDef, depth: number): string[] {
+function printDef(d: FuncDef, depth: number, language: 'ja' | 'en'): string[] {
   const pad = INDENT.repeat(depth);
   const out: string[] = [];
   if (d.warp) out.push(pad + '@warp');
   const params = d.params.map(p => `${p.name}: ${typeToString(p.paramType)}`).join(', ');
   out.push(pad + `def ${d.name}(${params}):`);
-  const body = printStmts(d.body, depth + 1);
+  const body = printStmts(d.body, depth + 1, language);
   out.push(...(body.length ? body : [INDENT.repeat(depth + 1) + 'pass']));
   return out;
 }
 
-function printEvent(e: EventDef, depth: number): string[] {
+function printEvent(e: EventDef, depth: number, language: 'ja' | 'en'): string[] {
   const pad = INDENT.repeat(depth);
   const out = [pad + printHat(e.hat) + ':'];
-  const body = printStmts(e.body, depth + 1);
+  const body = printStmts(e.body, depth + 1, language);
   out.push(...(body.length ? body : [INDENT.repeat(depth + 1) + 'pass']));
   return out;
 }
@@ -144,21 +143,21 @@ export function printHat(hat: Hat): string {
   }
 }
 
-export function printStmts(stmts: Stmt[], depth: number): string[] {
+export function printStmts(stmts: Stmt[], depth: number, language: 'ja' | 'en' = 'ja'): string[] {
   const pad = INDENT.repeat(depth);
   const out: string[] = [];
-  for (const s of stmts) out.push(...printStmt(s, depth, pad));
+  for (const s of stmts) out.push(...printStmt(s, depth, pad, language));
   // コメントだけの本体は再パースできない(インデントが無くなる)ため pass を補う
   const hasExec = stmts.some(s => s.type !== 'comment' && s.type !== 'unsupported');
   if (!hasExec) out.push(pad + 'pass');
   return out;
 }
 
-function printStmt(s: Stmt, depth: number, pad: string): string[] {
+function printStmt(s: Stmt, depth: number, pad: string, language: 'ja' | 'en'): string[] {
   switch (s.type) {
     case 'comment': return [pad + '#' + s.text];
     case 'pass': return [pad + 'pass'];
-    case 'unsupported': return [pad + `# [変換不可ブロック] opcode=${s.opcode} (このブロックは .sb3 再出力時に失われます)`];
+    case 'unsupported': return [pad + (language === 'en' ? `# [Unsupported block] opcode=${s.opcode} (this block will be lost when re-exported to .sb3)` : `# [変換不可ブロック] opcode=${s.opcode} (このブロックは .sb3 再出力時に失われます)`)];
     case 'assign': return [pad + `${printAssignTarget(s.target)} = ${printExpr(s.value)}`];
     case 'augassign': return [pad + `${printAssignTarget(s.target)} ${s.op} ${printExpr(s.value)}`];
     case 'exprstmt': return [pad + printExpr(s.expr)];
@@ -169,19 +168,19 @@ function printStmt(s: Stmt, depth: number, pad: string): string[] {
     case 'wait': return [pad + `wait(${printExpr(s.secs)})`];
     case 'repeat': {
       const out = [pad + `repeat ${printExpr(s.count)}:`];
-      const body = printStmts(s.body, depth + 1);
+      const body = printStmts(s.body, depth + 1, language);
       out.push(...(body.length ? body : [INDENT.repeat(depth + 1) + 'pass']));
       return out;
     }
     case 'forever': {
       const out = [pad + 'forever:'];
-      const body = printStmts(s.body, depth + 1);
+      const body = printStmts(s.body, depth + 1, language);
       out.push(...(body.length ? body : [INDENT.repeat(depth + 1) + 'pass']));
       return out;
     }
     case 'while': {
       const out = [pad + `while ${printExpr(s.cond)}:`];
-      const body = printStmts(s.body, depth + 1);
+      const body = printStmts(s.body, depth + 1, language);
       out.push(...(body.length ? body : [INDENT.repeat(depth + 1) + 'pass']));
       return out;
     }
@@ -190,7 +189,7 @@ function printStmt(s: Stmt, depth: number, pad: string): string[] {
       s.branches.forEach((b, i) => {
         const head = i === 0 ? 'if' : b.cond ? 'elif' : 'else';
         out.push(pad + (b.cond ? `${head} ${printExpr(b.cond)}:` : `${head}:`));
-        const body = printStmts(b.body, depth + 1);
+        const body = printStmts(b.body, depth + 1, language);
         out.push(...(body.length ? body : [INDENT.repeat(depth + 1) + 'pass']));
       });
       return out;
@@ -236,7 +235,7 @@ export function printExpr(e: Expr): string {
       return `${e.callee}(${args})`;
     }
     case 'index': return `${printExpr(e.obj)}[${printExpr(e.index)}]`;
-    case 'prop': return `${printExpr(e.obj)}.${e.prop}`;
+    case 'prop': return `${printExpr(e.obj)}.${displayName(e.prop, false)}`;
     case 'listlit': return `[${e.items.map(printExpr).join(', ')}]`;
   }
 }

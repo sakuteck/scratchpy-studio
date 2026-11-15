@@ -37,6 +37,8 @@ export const MENUS: Record<string, string[]> = {
   rotation_style: ['all around', 'left-right', "don't rotate"],
   effect: ['color', 'fisheye', 'whirl', 'pixelate', 'brightness', 'ghost', 'mosaic'],
   sound_effect: ['pitch', 'pan'],
+  // 'sync' is retained for files using the legacy/nonstandard field value.
+  drag_mode: ['draggable', 'not draggable', 'sync'],
   layer: ['front', 'back'],
   layer_dir: ['forward', 'backward'],
   stop: ['all', 'this script', 'other scripts'],
@@ -127,6 +129,7 @@ def({ name: 'delete_clone', callType: 'command', target: 'sprite', overloads: [[
 
 // --- 調べる (sensing) ------------------------------------------------------
 def({ name: 'ask', callType: 'command', target: 'both', overloads: [[str('question')]], doc: '「(question) と聞いて待つ」', scratchBlock: 'sensing_askandwait', opcode: 'sensing_askandwait' });
+def({ name: 'set_drag_mode', callType: 'command', target: 'both', overloads: [[menu('mode', 'drag_mode')]], doc: 'ドラッグの可否を設定', scratchBlock: 'sensing_setdragmode', opcode: 'sensing_setdragmode' });
 def({ name: 'reset_timer', callType: 'command', target: 'both', overloads: [[]], doc: '「タイマーをリセット」', scratchBlock: 'sensing_resettimer', opcode: 'sensing_resettimer' });
 def({ name: 'touching', callType: 'reporter', target: 'sprite', overloads: [[{ name: 'target', type: 'menu:touch_target' }]], returns: T_BOOL, doc: '「(target) に触れた?」', scratchBlock: 'sensing_touchingobject', opcode: 'sensing_touchingobject' });
 def({ name: 'touching_color', callType: 'reporter', target: 'sprite', overloads: [[{ name: 'color', type: 'color' }]], returns: T_BOOL, doc: '「(color) 色に触れた?」', scratchBlock: 'sensing_touchingcolor', opcode: 'sensing_touchingcolor' });
@@ -191,30 +194,31 @@ export interface PropertyDef {
   returns: SPType;
   opcode: string;
   doc: string;
+  docEn: string;
 }
 
 export const PROPERTIES: Record<string, PropertyDef> = {};
 function prop(p: PropertyDef) { PROPERTIES[p.name] = p; }
 
-prop({ name: 'x', target: 'sprite', returns: T_FLOAT, opcode: 'motion_xposition', doc: '「x座標」' });
-prop({ name: 'y', target: 'sprite', returns: T_FLOAT, opcode: 'motion_yposition', doc: '「y座標」' });
-prop({ name: 'direction', target: 'sprite', returns: T_FLOAT, opcode: 'motion_direction', doc: '「向き」' });
-prop({ name: 'size', target: 'sprite', returns: T_FLOAT, opcode: 'looks_size', doc: '「大きさ」' });
-prop({ name: 'costume_number', target: 'sprite', returns: T_INT, opcode: 'looks_costumenumber', doc: '「コスチュームの番号」' });
-prop({ name: 'costume_name', target: 'sprite', returns: T_STR, opcode: 'looks_costumename', doc: '「コスチュームの名前」' });
-prop({ name: 'volume', target: 'both', returns: T_FLOAT, opcode: 'sound_volume', doc: '「音量」' });
-prop({ name: 'backdrop_number', target: 'stage', returns: T_INT, opcode: 'looks_backdropnumber', doc: '「背景の番号」' });
-prop({ name: 'backdrop_name', target: 'stage', returns: T_STR, opcode: 'looks_backdropname', doc: '「背景の名前」' });
-prop({ name: 'tempo', target: 'stage', returns: T_FLOAT, opcode: 'music_getTempo', doc: '「テンポ」(music 拡張)' });
-prop({ name: 'mouse_x', target: 'both', returns: T_FLOAT, opcode: 'sensing_mousex', doc: '「マウスのx座標」' });
-prop({ name: 'mouse_y', target: 'both', returns: T_FLOAT, opcode: 'sensing_mousey', doc: '「マウスのy座標」' });
-prop({ name: 'mouse_down', target: 'both', returns: T_BOOL, opcode: 'sensing_mousedown', doc: '「マウスが押された?」' });
-prop({ name: 'timer', target: 'both', returns: T_FLOAT, opcode: 'sensing_timer', doc: '「タイマー」' });
-prop({ name: 'loudness', target: 'both', returns: T_FLOAT, opcode: 'sensing_loudness', doc: '「音量(マイク)」' });
-prop({ name: 'answer', target: 'both', returns: T_STR, opcode: 'sensing_answer', doc: '「答え」' });
-prop({ name: 'username', target: 'both', returns: T_STR, opcode: 'sensing_username', doc: '「ユーザー名」' });
-prop({ name: 'days_since_2000', target: 'both', returns: T_FLOAT, opcode: 'sensing_dayssince2000', doc: '「2000年からの日数」' });
-prop({ name: 'dragging', target: 'sprite', returns: T_BOOL, opcode: 'sensing_dragging', doc: '「ドラッグ中?」' });
+prop({ name: 'x', target: 'sprite', returns: T_FLOAT, opcode: 'motion_xposition', doc: '「x座標」', docEn: 'x' });
+prop({ name: 'y', target: 'sprite', returns: T_FLOAT, opcode: 'motion_yposition', doc: '「y座標」', docEn: 'y' });
+prop({ name: 'direction', target: 'sprite', returns: T_FLOAT, opcode: 'motion_direction', doc: '「向き」', docEn: 'direction' });
+prop({ name: 'size', target: 'sprite', returns: T_FLOAT, opcode: 'looks_size', doc: '「大きさ」', docEn: 'size' });
+prop({ name: 'costume_number', target: 'sprite', returns: T_INT, opcode: 'looks_costumenumber', doc: '「コスチュームの番号」', docEn: 'costume number' });
+prop({ name: 'costume_name', target: 'sprite', returns: T_STR, opcode: 'looks_costumename', doc: '「コスチュームの名前」', docEn: 'costume name' });
+prop({ name: 'volume', target: 'both', returns: T_FLOAT, opcode: 'sound_volume', doc: '「音量」', docEn: 'volume' });
+prop({ name: 'backdrop_number', target: 'both', returns: T_INT, opcode: 'looks_backdropnumber', doc: '「背景の番号」', docEn: 'backdrop number' });
+prop({ name: 'backdrop_name', target: 'both', returns: T_STR, opcode: 'looks_backdropname', doc: '「背景の名前」', docEn: 'backdrop name' });
+prop({ name: 'tempo', target: 'both', returns: T_FLOAT, opcode: 'music_getTempo', doc: '「テンポ」(music 拡張)', docEn: 'tempo' });
+prop({ name: 'mouse_x', target: 'both', returns: T_FLOAT, opcode: 'sensing_mousex', doc: '「マウスのx座標」', docEn: 'mouse x' });
+prop({ name: 'mouse_y', target: 'both', returns: T_FLOAT, opcode: 'sensing_mousey', doc: '「マウスのy座標」', docEn: 'mouse y' });
+prop({ name: 'mouse_down', target: 'both', returns: T_BOOL, opcode: 'sensing_mousedown', doc: '「マウスが押された?」', docEn: 'mouse down' });
+prop({ name: 'timer', target: 'both', returns: T_FLOAT, opcode: 'sensing_timer', doc: '「タイマー」', docEn: 'timer' });
+prop({ name: 'loudness', target: 'both', returns: T_FLOAT, opcode: 'sensing_loudness', doc: '「音量(マイク)」', docEn: 'loudness' });
+prop({ name: 'answer', target: 'both', returns: T_STR, opcode: 'sensing_answer', doc: '「答え」', docEn: 'answer' });
+prop({ name: 'username', target: 'both', returns: T_STR, opcode: 'sensing_username', doc: '「ユーザー名」', docEn: 'username' });
+prop({ name: 'days_since_2000', target: 'both', returns: T_FLOAT, opcode: 'sensing_dayssince2000', doc: '「2000年からの日数」', docEn: 'days since 2000' });
+prop({ name: 'dragging', target: 'sprite', returns: T_BOOL, opcode: 'sensing_dragging', doc: '「ドラッグ中?」', docEn: 'dragging' });
 
 // --- 予約プロパティ名(変数名に使用不可) ------------------------------------
 export const RESERVED_NAMES = new Set(Object.keys(PROPERTIES));

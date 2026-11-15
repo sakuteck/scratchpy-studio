@@ -1,3 +1,5 @@
+import { diag, diagnosticFields, type DiagnosticMessage } from '../lang/diagnostics';
+import { reporterMonitorForKey } from '../lang/monitors';
 /**
  * ScratchPy → Scratch 3.0 (.sb3 project.json) エクスポータ
  * ----------------------------------------------------------
@@ -43,6 +45,8 @@ export interface SoundAsset {
 }
 export interface AssetStore {
   costumes: Map<string, CostumeAsset>; // key: `${target}\u0000${costumeName}`
+  extensions?: string[];                // original declaration metadata when imported
+  monitorLayouts?: Pick<SB3Monitor, 'opcode' | 'spriteName' | 'params' | 'x' | 'y' | 'width' | 'height'>[];
   sounds: Map<string, SoundAsset>;     // key: `${target}\u0000${soundName}`
 }
 export function emptyAssetStore(): AssetStore {
@@ -252,10 +256,12 @@ class Exporter {
     private program: Program,
     private cr: CheckResult,
     private store: AssetStore,
-  ) {}
+  ) {
+    for (const ext of store.extensions ?? []) this.extensions.add(ext);
+  }
 
-  private err(message: string, loc?: Expr['loc']): never {
-    this.diagnostics.push({ severity: 'error', message, loc });
+  private err(message: string | DiagnosticMessage, loc?: Expr['loc']): never {
+    this.diagnostics.push({ severity: 'error', loc, ...diagnosticFields(message, 'export') });
     throw new ExportError(this.diagnostics);
   }
 
@@ -268,6 +274,23 @@ class Exporter {
     // ブロードキャストはステージに登録するのが Scratch の慣習
     stageTarget.broadcasts = {};
     for (const [bname, bid] of this.broadcasts) stageTarget.broadcasts[bid] = bname;
+
+    // Monitor IDs are regenerated. Match by target, opcode and menu parameters,
+    // never by ID, so renamed/deleted declarations cannot inherit another position.
+    const stageName = this.cr.ctx.stageName;
+    const key = (m: Pick<SB3Monitor, 'opcode' | 'spriteName' | 'params'>) => JSON.stringify([
+      m.opcode, !m.spriteName || m.spriteName === stageName ? null : m.spriteName,
+      Object.entries(m.params ?? {}).sort(([a], [b]) => a.localeCompare(b)),
+    ]);
+    const layouts = new Map((this.store.monitorLayouts ?? []).map(m => [key(m), m]));
+    for (const monitor of this.monitors) {
+      const layout = layouts.get(key(monitor));
+      if (!layout) continue;
+      for (const field of ['x', 'y', 'width', 'height'] as const) {
+        const value = layout[field];
+        if (typeof value === 'number' && Number.isFinite(value)) monitor[field] = value;
+      }
+    }
 
     const project: SB3Project = {
       targets: [stageTarget, ...spriteTargets],
@@ -342,6 +365,7 @@ class Exporter {
         else if (item.decl === 'config') this.applyStageConfig(target, item);
       }
       this.emitDecls(stage.body, ctx, target, true);
+      this.emitReporterMonitors(stage.body, target);
     }
     if (costumes.length === 0) costumes.push('backdrop1');
     target.costumes = costumes.map(c => this.buildCostume(name, c, true));
@@ -352,6 +376,30 @@ class Exporter {
     events.forEach((e, i) => this.emitEvent(bb, ctx, e, i));
     target.blocks = bb.blocks;
     return target;
+  }
+
+  private emitReporterMonitors(body: BodyItem[], target: SB3Target): void {
+    for (const item of body) {
+      if (!("decl" in item) || item.decl !== 'config') continue;
+      const spec = reporterMonitorForKey(item.key, target.isStage);
+      if (!spec || item.value.type !== 'bool') continue;
+      if (spec.extension) this.extensions.add(spec.extension);
+      // Sprite-specific IDs are recomputed by Scratch VM on loading. The
+      // spriteName identifies the actual target, including Stage for volume.
+      const targetSpecific = spec.scope !== 'stage';
+      const monitorIndex = Math.floor((this.monitorY - 5) / 55);
+      // Wrap to the next column before reaching the bottom of the 480×360 stage.
+      const x = 5 + Math.floor(monitorIndex / 6) * 150;
+      const y = 5 + (monitorIndex % 6) * 55;
+      this.monitors.push({
+        id: targetSpecific ? `scratchpy_${sanitizeId(target.name)}_${spec.id}` : spec.id,
+        opcode: spec.opcode, params: {...spec.params},
+        spriteName: targetSpecific ? target.name : null,
+        mode:'default', value: 0, width:0, height:0,
+        x, y, visible:item.value.value,
+      });
+      if (item.value.value) this.monitorY += 55;
+    }
   }
 
   private applyStageConfig(target: SB3Target, c: ConfigDecl): void {
@@ -402,6 +450,7 @@ class Exporter {
       else if (item.decl === 'config') this.applySpriteConfig(target, item);
     }
     this.emitDecls(sp.body, ctx, target, false);
+    this.emitReporterMonitors(sp.body, target);
     if (costumes.length === 0) costumes.push('costume1');
     target.costumes = costumes.map(c => this.buildCostume(sp.name, c, false));
     target.sounds = sounds.map(s => this.buildSound(sp.name, s));
@@ -453,7 +502,7 @@ class Exporter {
         break;
       default: break;
     }
-    this.err(`この位置にはリテラル(数値・文字列・true/false)のみ指定できます`, e.loc);
+    this.err(diag("export.literal", {}), e.loc);
   }
   private literalBool(e: Expr): boolean {
     if (e.type === 'bool') return e.value;
@@ -512,7 +561,7 @@ class Exporter {
             ...(v.monitor.mode === 'slider' ? {
               sliderMin: v.monitor.min ?? 0, sliderMax: v.monitor.max ?? 100,
               min: v.monitor.min ?? 0, max: v.monitor.max ?? 100,
-              isDiscrete: true,
+              isDiscrete: v.monitor.isDiscrete ?? true,
             } : {}),
           });
           this.monitorY += 55;
@@ -550,7 +599,7 @@ class Exporter {
         break;
       default: break;
     }
-    this.err(`変数の初期値はリテラル(数値・文字列・true/false)のみ対応しています`, e.loc);
+    this.err(diag("export.variableLiteral", {}), e.loc);
   }
 
   // --- コスチューム/サウンド ------------------------------------------------
@@ -612,12 +661,12 @@ class Exporter {
       case 'click': hatId = bb.add('event_whenthisspriteclicked', { topLevel: true, x, y }); break;
       case 'clone': hatId = bb.add('event_whenstartasclone', { topLevel: true, x, y }); break;
       case 'key': {
-        if (hat.key.type !== 'str') this.err('on key のキー名は文字列リテラルで指定してください', hat.key.loc);
+        if (hat.key.type !== 'str') this.err(diag("export.keyLiteral", {}), hat.key.loc);
         hatId = bb.add('event_whenkeypressed', { topLevel: true, x, y, fields: { KEY_OPTION: [scratchKeyName(hat.key.value), null] } });
         break;
       }
       case 'receive': {
-        if (hat.msg.type !== 'str') this.err('on receive のメッセージ名は文字列リテラルで指定してください', hat.msg.loc);
+        if (hat.msg.type !== 'str') this.err(diag("export.receiveLiteral", {}), hat.msg.loc);
         const name = hat.msg.value;
         const id = this.broadcastId(name);
         hatId = bb.add('event_whenbroadcastreceived', {
@@ -637,7 +686,7 @@ class Exporter {
         break;
       }
       case 'backdrop': {
-        if (hat.name.type !== 'str') this.err('on backdrop の背景名は文字列リテラルで指定してください', hat.name.loc);
+        if (hat.name.type !== 'str') this.err(diag("export.backdropLiteral", {}), hat.name.loc);
         hatId = bb.add('event_whenbackdropswitchesto', { topLevel: true, x, y, fields: { BACKDROP: [hat.name.value, null] } });
         break;
       }
@@ -778,7 +827,7 @@ class Exporter {
         }
         let targetName = '_self_';
         if (s.target) {
-          if (s.target.type !== 'str') this.err('create_clone() の対象は文字列リテラル(スプライト名 または "myself")で指定してください', s.target.loc);
+          if (s.target.type !== 'str') this.err(diag("export.cloneLiteral", {}), s.target.loc);
           targetName = s.target.value === 'myself' ? '_self_' : s.target.value;
         }
         const menuId = bb.add('control_create_clone_of_menu', { shadow: true, fields: { clone_option: [targetName, null] } });
@@ -807,7 +856,7 @@ class Exporter {
         } else if (lEnt) {
           id = bb.add(s.show ? 'data_showlist' : 'data_hidelist', { fields: { LIST: [lEnt.decl.name, this.listIdOf(lEnt)] } });
         } else {
-          return this.err(`変数/リスト '${name}' が見つかりません`, s.loc);
+          return this.err(diag("export.monitorNotFound", {p0: String(name)}), s.loc);
         }
         return { first: id, last: id };
       }
@@ -821,11 +870,11 @@ class Exporter {
 
   private resolveVarEntity(ctx: TargetCtx, target: Expr): VarEntity {
     const name = target.type === 'name' || target.type === 'varref' ? target.name : null;
-    if (!name) this.err('代入対象が不正です', target.loc);
+    if (!name) this.err(diag("export.assignmentTarget", {}), target.loc);
     const res = this.cr.resolutions.get(target);
     if (res && res.entity === 'var') return res;
     const ent = ctx.varEntities.get(name!);
-    if (!ent) this.err(`変数 '${name}' が見つかりません`, target.loc);
+    if (!ent) this.err(diag("var.notFound", {p0: String(name)}), target.loc);
     return ent!;
   }
 
@@ -834,9 +883,9 @@ class Exporter {
     if (s.target.type === 'index') {
       const listName = s.target.obj.type === 'name' ? s.target.obj.name
         : s.target.obj.type === 'listref' ? s.target.obj.name : null;
-      if (!listName) this.err('添字代入の対象はリスト名のみ対応しています', s.loc);
+      if (!listName) this.err(diag("export.indexList", {}), s.loc);
       const listEnt = ctx.listEntities.get(listName!);
-      if (!listEnt) this.err(`リスト '${listName}' が見つかりません`, s.loc);
+      if (!listEnt) this.err(diag("list.notFound", {p0: String(listName)}), s.loc);
       const idxSlot = this.compileIndexExpr(bb, ctx, s.target.index);
       const inputs = { INDEX: inputOf(idxSlot, [7, '1']), ITEM: inputOf(slot, [10, 'thing']) };
       const id = bb.add('data_replaceitemoflist', {
@@ -859,7 +908,7 @@ class Exporter {
   private compileListMethod(bb: BlockBuilder, ctx: TargetCtx, s: Extract<Stmt, { type: 'listmethod' }>): { first: string; last: string } {
     const name = s.list.name;
     const ent = ctx.listEntities.get(name);
-    if (!ent) this.err(`リスト '${name}' が見つかりません`, s.loc);
+    if (!ent) this.err(diag("list.notFound", {p0: String(name)}), s.loc);
     const listField: BlockField = [name, this.listIdOf(ent)];
     switch (s.method) {
       case 'add': {
@@ -916,14 +965,14 @@ class Exporter {
       return id;
     };
     const first = build(0);
-    if (!first) this.err('if 文を変換できません', s.loc);
+    if (!first) this.err(diag("export.if", {}), s.loc);
     return { first: first!, last: first! };
   }
 
   // --- コマンド呼び出し(式文) ------------------------------------------------
   private compileCommandCall(bb: BlockBuilder, ctx: TargetCtx, expr: Expr, loc?: Expr['loc']): { first: string; last: string } | null {
     if (expr.type !== 'call') {
-      this.err('文として実行できるのは関数呼び出しだけです', loc);
+      this.err(diag("export.statementCall", {}), loc);
     }
     const call = expr as Extract<Expr, { type: 'call' }>;
     const name = call.callee;
@@ -981,7 +1030,7 @@ class Exporter {
 
     const r = this.compileBuiltin(bb, ctx, name, call.args, loc);
     if (!r) {
-      this.err(`'${name}' をコマンド(文)として実行できません`, loc);
+      this.err(diag("export.command", {p0: String(name)}), loc);
     }
     return r;
   }
@@ -995,7 +1044,7 @@ class Exporter {
       case 'bool': return this.compileBoolLitBlock(bb, e.value);
       case 'name': {
         const res = this.cr.resolutions.get(e) ?? this.fallbackResolve(ctx, e.name);
-        if (!res) this.err(`'${e.name}' を解決できません`, e.loc);
+        if (!res) this.err(diag("export.resolve", {p0: String(e.name)}), e.loc);
         switch (res!.entity) {
           case 'var': {
             const storedName = (res!.decl.cloud ? '☁ ' : '') + res!.decl.name;
@@ -1003,7 +1052,7 @@ class Exporter {
           }
           case 'param': {
             const p = ctx.params.get(e.name);
-            if (!p) this.err(`引数 '${e.name}' はブロック定義(def)内でのみ使えます`, e.loc);
+            if (!p) this.err(diag("export.parameter", {p0: String(e.name)}), e.loc);
             const isBool = p!.paramType.kind === 'bool';
             const id = bb.add(isBool ? 'argument_reporter_boolean' : 'argument_reporter_string_number', {
               fields: { VALUE: [e.name, null] },
@@ -1013,22 +1062,30 @@ class Exporter {
           case 'property': {
             const pd = PROPERTIES[res!.prop];
             if (pd.opcode.startsWith('music_')) this.extensions.add('music');
-            const id = bb.add(pd.opcode, {});
+            // Scratch combines number/name in one opcode with a menu field.
+            const variants: Record<string, [string, string]> = {
+              costume_number: ['looks_costumenumbername', 'number'],
+              costume_name: ['looks_costumenumbername', 'name'],
+              backdrop_number: ['looks_backdropnumbername', 'number'],
+              backdrop_name: ['looks_backdropnumbername', 'name'],
+            };
+            const variant = variants[res!.prop];
+            const id = variant ? bb.add(variant[0], { fields: { NUMBER_NAME: [variant[1], null] } }) : bb.add(pd.opcode, {});
             return { kind: 'block', id };
           }
           case 'list':
-            return this.err(`リスト '${e.name}' は値として直接使用できません(${e.name}[i] や len(${e.name}) を使ってください)`, e.loc);
+            return this.err(diag("export.listValue", {p0: String(e.name), p1: String(e.name), p2: String(e.name)}), e.loc);
         }
         break;
       }
       case 'varref': {
         const ent = ctx.varEntities.get(e.name);
-        if (!ent) this.err(`変数 '${e.name}' が見つかりません`, e.loc);
+        if (!ent) this.err(diag("var.notFound", {p0: String(e.name)}), e.loc);
         return { kind: 'var', name: (ent!.decl.cloud ? '☁ ' : '') + ent!.decl.name, id: this.varIdOf(ent!) };
       }
       case 'listref': {
         const ent = ctx.listEntities.get(e.name);
-        if (!ent) this.err(`リスト '${e.name}' が見つかりません`, e.loc);
+        if (!ent) this.err(diag("list.notFound", {p0: String(e.name)}), e.loc);
         return { kind: 'list', name: e.name, id: this.listIdOf(ent!) };
       }
       case 'unary': {
@@ -1068,20 +1125,20 @@ class Exporter {
             return { kind: 'block', id };
           }
         }
-        this.err('添字アクセス [ ] の対象はリストか文字列のみ変換できます', e.loc);
+        this.err(diag("export.index", {}), e.loc);
         break;
       }
       case 'prop': return this.compileProp(bb, ctx, e);
       case 'call': {
         const name0 = call_expr_name(e);
-        if (e.method) this.err(`'${name0}' は値を返しません(文として使用してください)`, e.loc);
+        if (e.method) this.err(diag("export.noValue", {p0: String(name0)}), e.loc);
         if (name0 === 'len') {
           const arg = e.args[0];
           const t = (arg as { spType?: SPType }).spType;
           const argName = arg.type === 'name' ? arg.name : arg.type === 'listref' ? arg.name : null;
           const listEnt = argName ? ctx.listEntities.get(argName) : undefined;
           if (t?.kind === 'list' || listEnt) {
-            if (!listEnt) this.err('len() の対象リストを解決できません', arg.loc);
+            if (!listEnt) this.err(diag("export.lenList", {}), arg.loc);
             const id = bb.add('data_lengthoflist', { fields: { LIST: [argName!, this.listIdOf(listEnt!)] } });
             return { kind: 'block', id };
           }
@@ -1094,31 +1151,31 @@ class Exporter {
         if (name0 === 'item_number') {
           const list=e.args[0]; const listName=list?.type==='name'||list?.type==='listref'?list.name:null;
           const ent=listName?ctx.listEntities.get(listName):undefined;
-          if (!ent || !listName || !e.args[1]) return this.err('item_number() のリストを解決できません', e.loc);
+          if (!ent || !listName || !e.args[1]) return this.err(diag("export.itemNumberList", {}), e.loc);
           const inputs={ITEM:inputOf(this.compileExpr(bb,ctx,e.args[1]),[10,''])};
           const id=bb.add('data_itemnumoflist',{inputs,fields:{LIST:[listName,this.listIdOf(ent)]}});
           bb.adoptInputs(id,inputs);return {kind:'block',id};
         }
         if (name0 === 'var' && e.args[0]?.type === 'str') {
           const ent = ctx.varEntities.get(e.args[0].value);
-          if (!ent) this.err(`変数 '${e.args[0].value}' が見つかりません`, e.loc);
+          if (!ent) this.err(diag("var.notFound", {p0: String(e.args[0].value)}), e.loc);
           return { kind: 'var', name: (ent!.decl.cloud ? '☁ ' : '') + ent!.decl.name, id: this.varIdOf(ent!) };
         }
         if (name0 === 'list' && e.args[0]?.type === 'str') {
           const ent = ctx.listEntities.get(e.args[0].value);
-          if (!ent) this.err(`リスト '${e.args[0].value}' が見つかりません`, e.loc);
+          if (!ent) this.err(diag("list.notFound", {p0: String(e.args[0].value)}), e.loc);
           return { kind: 'list', name: e.args[0].value, id: this.listIdOf(ent!) };
         }
-        if (ctx.procs.has(name0)) this.err(`ブロック '${name0}' は値を返しません(文として使用してください)`, e.loc);
+        if (ctx.procs.has(name0)) this.err(diag("export.blockNoValue", {p0: String(name0)}), e.loc);
         const rep = this.compileReporter(bb, ctx, name0, e.args, e.loc);
         if (rep) return rep;
-        this.err(`'${name0}' は値を返す式としては使えません(コマンドは文の位置に書いてください)`, e.loc);
+        this.err(diag("export.commandValue", {p0: String(name0)}), e.loc);
         break;
       }
       case 'listlit':
-        this.err('リストリテラル [ ] は var/list の初期値としてのみ使用できます', e.loc);
+        this.err(diag("export.listLiteral", {}), e.loc);
     }
-    return this.err(`式を変換できません (${(e as Expr).type})`, (e as Expr).loc);
+    return this.err(diag("export.expression", {p0: String((e as Expr).type)}), (e as Expr).loc);
   }
 
   private fallbackResolve(ctx: TargetCtx, name: string): NameResolution | null {
@@ -1210,17 +1267,17 @@ class Exporter {
       case 'and': id = bin('operator_and', boolInput(l), boolInput(r), 'OPERAND1', 'OPERAND2'); break;
       case 'or': id = bin('operator_or', boolInput(l), boolInput(r), 'OPERAND1', 'OPERAND2'); break;
       default:
-        this.err(`演算子 '${op}' は変換できません`, e.loc);
+        this.err(diag("export.operator", {p0: String(op)}), e.loc);
     }
     return { kind: 'block', id: id! };
   }
 
   private compileProp(bb: BlockBuilder, ctx: TargetCtx, e: Extract<Expr, { type: 'prop' }>): Slot {
-    if (e.obj.type !== 'name') this.err('プロパティ参照は「スプライト名.プロパティ」形式のみ変換できます', e.loc);
-    const objName = (e.obj as { name: string }).name;
-    const isStageRef = objName === this.cr.ctx.stageName || objName === 'stage';
+    if (e.obj.type !== 'name' && e.obj.type !== 'str' && e.obj.type !== 'color') this.err(diag("export.propertySyntax", {}), e.loc);
+    const objName = e.obj.type === 'name' ? e.obj.name : (e.obj as { value: string }).value;
+    const isStageRef = objName === this.cr.ctx.stageName || (objName === 'stage' && (e.obj.type === 'name' || !this.cr.ctx.spriteNames.includes('stage')));
     if (!isStageRef && !this.cr.ctx.spriteNames.includes(objName)) {
-      this.err(`'${objName}' はスプライト名ではありません`, e.loc);
+      this.err(diag("export.spriteNotFound", {p0: String(objName)}), e.loc);
     }
     const propName = SENSING_OF_PROPS[e.prop];
     let property = propName ?? null;
@@ -1229,7 +1286,7 @@ class Exporter {
       if (vars?.has(e.prop)) property = e.prop;
       else if (!isStageRef && this.cr.ctx.stageVars.has(e.prop)) property = e.prop;
     }
-    if (!property) this.err(`'${objName}.${e.prop}' を変換できません`, e.loc);
+    if (!property) this.err(diag("export.property", {p0: String(objName), p1: String(e.prop)}), e.loc);
     if (property === 'tempo') this.extensions.add('music');
     const menuId = bb.add('sensing_of_object_menu', {
       shadow: true,
@@ -1259,7 +1316,7 @@ class Exporter {
     const S = (i: number): string => {
       const a = args[i];
       if (a && (a.type === 'str' || a.type === 'color')) return a.value;
-      return this.err(`${name}() の引数${i + 1}は文字列リテラルが必要です`, a?.loc ?? loc);
+      return this.err(diag("export.stringLiteral", {p0: String(name), p1: String(i + 1)}), a?.loc ?? loc);
     };
     const one = (opcode: string, inputs: Record<string, BlockInput> = {}, fields?: Record<string, BlockField>): { first: string; last: string } => {
       const id = bb.add(opcode, { inputs, fields });
@@ -1379,7 +1436,7 @@ class Exporter {
     const S = (i: number): string => {
       const a = args[i];
       if (a && (a.type === 'str' || a.type === 'color')) return a.value;
-      return this.err(`${name}() の引数${i + 1}は文字列リテラルが必要です`, a?.loc ?? loc);
+      return this.err(diag("export.stringLiteral", {p0: String(name), p1: String(i + 1)}), a?.loc ?? loc);
     };
     const rep = (opcode: string, inputs: Record<string, BlockInput> = {}, fields?: Record<string, BlockField>): Slot => {
       const id = bb.add(opcode, { inputs, fields });

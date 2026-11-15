@@ -3,70 +3,77 @@
    glassmorphism / soft gradients / light & dark themes
    ============================================================ */
 
+/* テーマ変数はこの 1 か所だけで定義する（v1.0.17 でバイト単位の重複ブロックを統合）。
+   値は v1.0.16 の実効値（後段の重複ブロックが上書きしていた側）を採用している。 */
 :root {
-  /* アクセント */
-  --grad: linear-gradient(135deg, #ff8c1a 0%, #ff5e7a 55%, #c86dd7 100%);
-  --accent: #ff6b4a;
-  --accent2: #4c97ff;
-
-  /* ライトテーマ(既定) */
-  --bg: #eef1f8;
-  --blob1: rgba(255, 170, 90, 0.5);
-  --blob2: rgba(140, 170, 255, 0.45);
-  --blob3: rgba(255, 140, 190, 0.35);
-  --panel: rgba(255, 255, 255, 0.72);
-  --panel-solid: #ffffff;
-  --border: rgba(30, 45, 90, 0.10);
-  --border-strong: rgba(30, 45, 90, 0.18);
-  --text: #23283d;
-  --muted: #6d7590;
-  --shadow: 0 10px 34px rgba(35, 50, 100, 0.10), 0 2px 8px rgba(35, 50, 100, 0.06);
-  --hover: rgba(255, 255, 255, 0.95);
-  --seg-bg: rgba(120, 132, 170, 0.14);
-  --seg-active: #ffffff;
-  --canvas-bg: rgba(246, 248, 253, 0.65);
-  --canvas-dot: rgba(60, 80, 150, 0.16);
-  --mouth-bg: rgba(35, 50, 100, 0.045);
+  --grad: linear-gradient(135deg,#397fdc,#6659d9);
+  --accent: #4c97ff;
+  --accent2: #347bd7;
+  --bg: #edf3fb;
+  --blob1: rgba(76,151,255,.13);
+  --blob2: rgba(102,130,230,.12);
+  --blob3: rgba(120,103,218,.08);
+  --panel: #fff;
+  --panel-solid: #fff;
+  --border: #d9e5f2;
+  --border-strong: #c9d8eb;
+  --text: #243a59;
+  --muted: #5f7391;
+  --shadow: 0 5px 18px rgba(46,83,129,.09);
+  --seg-bg: #eaf1fb;
+  --seg-active: #fff;
+  --canvas-bg: #f5f8fd;
   --editor-bg: #191c30;
   --editor-bg2: #14172a;
   --editor-text: #e8eaf6;
   --editor-gutter: rgba(255, 255, 255, 0.045);
-  --editor-ln: #59608a;
-  --error: #e5484d;
-  --warn: #d9930f;
-  --info: #4c97ff;
-  --ok: #30a46c;
-  --status-bg: rgba(28, 32, 54, 0.88);
-  --code-inline-bg: rgba(120, 132, 170, 0.15);
+  --editor-ln: #8b94b8;
+  --error: #b02a30;
+  --warn: #9a5b00;
+  --info: #2f6ec4;
+  --ok: #19774a;
+  --status-bg: #263e61;
+  --code-inline-bg: #eef2f8;
+  --code-inline-ink: #1b2438;
+  --note-bg: #fff3d9;
+  --note-ink: #7a4700;
+  --focus-inner: #b45309;              /* フォーカス輪の内側（明るい面で 4.5:1 以上） */
+  --focus-outer: rgba(255, 255, 255, 0.9);
 }
 
 html[data-theme="dark"] {
-  --bg: #0c0e1a;
-  --blob1: rgba(255, 122, 60, 0.16);
-  --blob2: rgba(90, 120, 255, 0.16);
-  --blob3: rgba(220, 90, 170, 0.12);
-  --panel: rgba(23, 27, 46, 0.66);
-  --panel-solid: #171b2e;
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --text: #e9ecf8;
-  --muted: #9aa2c0;
-  --shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 2px 10px rgba(0, 0, 0, 0.3);
-  --hover: rgba(38, 44, 70, 0.9);
-  --seg-bg: rgba(255, 255, 255, 0.07);
-  --seg-active: #2c3352;
-  --canvas-bg: rgba(13, 16, 30, 0.55);
-  --canvas-dot: rgba(160, 180, 255, 0.10);
-  --mouth-bg: rgba(0, 0, 0, 0.22);
-  --editor-bg: #12142400;
+  --grad: linear-gradient(135deg,#367acb,#6a5cc4);
+  --accent: #6daaff;
+  --accent2: #8abaff;
+  --bg: #101d30;
+  --blob1: rgba(76,151,255,.10);
+  --blob2: rgba(102,130,230,.10);
+  --blob3: rgba(120,103,218,.08);
+  --panel: #1b2d46;
+  --panel-solid: #1b2d46;
+  --border: #344a66;
+  --border-strong: #4a627f;
+  --text: #e8f0fa;
+  --muted: #adbed6;
+  --shadow: 0 8px 24px rgba(4,12,25,.22);
+  --seg-bg: #263d5a;
+  --seg-active: #354f70;
+  --canvas-bg: #17263b;
   --editor-bg: #121424;
   --editor-bg2: #0d0f1e;
   --editor-text: #dfe3f5;
   --editor-gutter: rgba(255, 255, 255, 0.03);
-  --editor-ln: #4d5478;
-  --status-bg: rgba(10, 12, 24, 0.9);
-  --code-inline-bg: rgba(160, 175, 230, 0.14);
+  --editor-ln: #93a0c4;
+  --status-bg: #101c2e;
+  --code-inline-bg: #233350;
+  --code-inline-ink: #e8f0fa;
+  --note-bg: #3a2b12;
+  --note-ink: #ffd9a0;
+  --ok: #63d69b;
+  --focus-inner: #ffbf00;
+  --focus-outer: rgba(0, 0, 0, 0.85);
 }
+
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
@@ -205,13 +212,13 @@ body::after {
 .btn:active { transform: translateY(0.5px); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
 .btn.primary {
-  background: var(--grad);
+  /* 白文字とのコントラストを AA（4.5:1）以上に保つ濃色。明るい Scratch 色は縁取りで示す。 */
+  background: linear-gradient(135deg, #c2410c, #b3245c);
   border: none;
   color: #fff;
-  box-shadow: 0 5px 18px rgba(255, 100, 90, 0.4);
+  box-shadow: 0 5px 18px rgba(150, 50, 40, 0.32);
 }
-.btn.primary:hover { box-shadow: 0 8px 26px rgba(255, 100, 90, 0.55); filter: brightness(1.05); }
-.btn.blue { background: linear-gradient(135deg, #4c97ff, #6aa8ff); border: none; color: #fff; box-shadow: 0 5px 16px rgba(76, 151, 255, 0.35); }
+.btn.primary:hover { box-shadow: 0 8px 26px rgba(150, 50, 40, 0.45); filter: brightness(1.06); }
 .btn.icon { padding: 8px 11px; font-size: 15px; }
 
 select.sample-select {
@@ -407,7 +414,7 @@ textarea.code::selection { background: rgba(255, 140, 90, 0.35); }
 
 /* ---- タブ ---- */
 .tabs {
-  display: flex; gap: 3px; padding: 5px;
+  display: flex; flex-wrap: wrap; gap: 3px; padding: 5px;
   background: var(--seg-bg);
   border-radius: 999px;
   margin-bottom: 10px;
@@ -415,7 +422,8 @@ textarea.code::selection { background: rgba(255, 140, 90, 0.35); }
   backdrop-filter: blur(10px);
 }
 .tab {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   border: none;
   background: transparent;
   padding: 8px 10px;
@@ -440,7 +448,7 @@ textarea.code::selection { background: rgba(255, 140, 90, 0.35); }
 }
 .tab .badge {
   background: var(--error); color: #fff;
-  border-radius: 999px; font-size: 10.5px;
+  border-radius: 999px; font-size:11px;
   padding: 0 6px; line-height: 16px; font-weight: 800;
 }
 .tab .badge.warn { background: var(--warn); }
@@ -481,9 +489,11 @@ textarea.code::selection { background: rgba(255, 140, 90, 0.35); }
   transition: background 0.14s;
 }
 .tree-row:hover { background: var(--seg-bg); }
-.tree-caret { width: 14px; text-align: center; color: var(--muted); font-size: 10px; flex: none; cursor: pointer; }
-.tree-kind { font-size: 10px; font-weight: 800; padding: 1.5px 8px; border-radius: 999px; color: #fff; flex: none; }
-.kind-stage { background: #8a63d2; }
+.tree-caret { width: 14px; text-align: center; color: var(--muted); font-size:11px; flex: none; cursor: pointer; }
+/* 10px の極小ラベル。Scratch のカテゴリ色は「背景」に残し、文字は濃色にして
+   すべて 4.5:1 以上（kind-stage のみ白 6.47:1）を確保する。 */
+.tree-kind { font-size:11px; font-weight: 800; padding: 1.5px 8px; border-radius: 999px; color: #1b2438; flex: none; }
+.kind-stage { background: #6d47b8; color: #fff; }
 .kind-sprite { background: #4c97ff; }
 .kind-var { background: #ff8c1a; }
 .kind-list { background: #ff661a; }
@@ -513,7 +523,7 @@ pre.json {
   animation: rise 0.25s ease;
 }
 .log-entry .head { display: flex; gap: 8px; align-items: center; font-size: 11px; color: var(--muted); margin-bottom: 3px; }
-.log-entry .tag { font-weight: 800; padding: 1px 9px; border-radius: 999px; font-size: 10.5px; color: #fff; }
+.log-entry .tag { font-weight: 800; padding: 1px 9px; border-radius: 999px; font-size:11px; color: #fff; }
 .tag-ok { background: var(--ok); }
 .tag-info { background: var(--info); }
 .tag-warn { background: var(--warn); }
@@ -550,16 +560,20 @@ pre.json {
 .blocklyToolboxCategory:hover { background: var(--seg-bg); }
 .blocklyToolboxSelected { background: var(--seg-active) !important; box-shadow: 0 2px 8px rgba(36, 42, 85, .12); }
 .blocklyToolboxCategoryLabel { font-size: 12px; font-weight: 700; }
-button:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent2); outline-offset: 2px; }
+/* フォーカスは「内側=濃色 / 外側=対照色」の 2 重リング。白い面でも濃い面でも輪郭が消えない（診断 N20）。 */
+button:focus-visible, select:focus-visible, textarea:focus-visible, [role="tab"]:focus-visible, [tabindex]:focus-visible {
+  outline: 3px solid var(--focus-inner); outline-offset: 2px;
+  box-shadow: 0 0 0 6px var(--focus-outer);
+}
+
 
 /* 説明ページ */
 .editor-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .editor-shell[hidden] { display: none; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .guide-entry { color: #6153b3; }
-html[data-theme="dark"] .guide-entry { color: #c5b9ff; }
-.guide-page { --guide-paper: #fff; --guide-surface: #f8f9fd; --guide-line: #e9ebf3; --guide-ink: #252944; --guide-muted: #7e839e; --guide-violet: #6d59c8; display: flex; flex-direction: column; min-height: 0; height: 100%; background: #fafaff; color: var(--guide-ink); }
-html[data-theme="dark"] .guide-page { --guide-paper: #171b2e; --guide-surface: #20243b; --guide-line: #343a55; --guide-ink: #edf0fc; --guide-muted: #aab0c8; --guide-violet: #b6a4ff; background: #121527; }
+html[data-theme="dark"] .guide-entry { color: #ffffff; }
+.guide-page { display: flex; flex-direction: column; min-height: 0; height: 100%; color: var(--guide-ink); }
 .guide-topbar { height: 68px; flex: none; padding: 0 30px; display: flex; align-items: center; gap: 18px; background: var(--guide-paper); border-bottom: 1px solid var(--guide-line); z-index: 2; }
 .guide-brand { border: 0; background: none; padding: 0; color: var(--guide-ink); font: inherit; font-size: 15px; font-weight: 800; display: flex; align-items: center; gap: 10px; cursor: pointer; white-space: nowrap; }
 .guide-brand b { color: var(--guide-violet); }
@@ -571,13 +585,13 @@ html[data-theme="dark"] .guide-page { --guide-paper: #171b2e; --guide-surface: #
 .guide-back { padding: 10px 15px; }
 .guide-layout { display: flex; flex: 1; min-height: 0; }
 .guide-sidebar { flex: none; width: 250px; display: flex; flex-direction: column; overflow-y: auto; background: var(--guide-paper); border-right: 1px solid var(--guide-line); padding: 29px 17px 20px; }
-.guide-sidebar-title { color: var(--guide-ink); letter-spacing: .1em; font-size: 10px; font-weight: 850; margin: 0 8px 17px; }
+.guide-sidebar-title { color: var(--guide-ink); letter-spacing: .1em; font-size:11px; font-weight: 850; margin: 0 8px 17px; }
 .guide-sidebar-title span { color: var(--guide-muted); letter-spacing: 0; font-weight: 600; }
 .guide-search { display: flex; align-items: center; gap: 9px; min-height: 39px; background: var(--guide-surface); color: var(--guide-muted); border: 1px solid var(--guide-line); border-radius: 10px; padding: 0 11px; margin-bottom: 24px; }
 .guide-search:focus-within { border-color: #ad9aed; }
 .guide-search input { background: transparent; border: 0; outline: 0; min-width: 0; width: 100%; color: var(--guide-ink); font: inherit; font-size: 12px; }
 .guide-search input::placeholder { color: var(--guide-muted); }
-.guide-nav-label { color: var(--guide-muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; margin: 0 10px 8px; }
+.guide-nav-label { color: var(--guide-muted); font-size:11px; font-weight: 800; letter-spacing: .04em; margin: 0 10px 8px; }
 .guide-nav-label:not(:first-child) { margin-top: 19px; }
 .guide-nav { display: flex; flex-direction: column; gap: 3px; }
 .guide-nav-item { width: 100%; text-align: left; min-height: 40px; display: flex; align-items: center; gap: 11px; border: 0; border-radius: 10px; background: transparent; color: var(--guide-muted); font: inherit; font-size: 12px; font-weight: 700; padding: 9px 11px; cursor: pointer; }
@@ -595,14 +609,14 @@ html[data-theme="dark"] .guide-page { --guide-paper: #171b2e; --guide-surface: #
 .guide-hero { min-height: 274px; display: flex; overflow: hidden; position: relative; border: 1px solid rgba(181,159,217,.18); border-radius: 22px; background: linear-gradient(118deg,#fbf3f4 0%,#f5effc 54%,#e8efff 100%); }
 html[data-theme="dark"] .guide-hero { background: linear-gradient(118deg,#392c3a,#302943 52%,#253455); }
 .guide-hero-copy { position: relative; z-index: 1; padding: 37px 44px; }
-.guide-eyebrow, .guide-kicker { color: #9883cb; font-size: 9px; font-weight: 850; letter-spacing: .13em; }
+.guide-eyebrow, .guide-kicker { color: #5a45ad; font-size:11px; font-weight: 850; letter-spacing: .13em; }
 .guide-eyebrow { display: flex; align-items: center; gap: 8px; }
 .guide-eyebrow span { width: 6px; height: 6px; border-radius: 50%; background: #bd92df; }
 .guide-hero h1 { color: var(--guide-ink); font-size: clamp(25px,2.5vw,34px); letter-spacing: -.04em; line-height: 1.42; margin: 15px 0 9px; }
 .guide-hero h1 em { font-style: normal; color: #8b69cb; }
 .guide-hero p { color: var(--guide-muted); font-size: 12px; font-weight: 600; line-height: 1.9; margin: 0 0 19px; }
-.guide-primary { border: 0; border-radius: 10px; display: inline-flex; align-items: center; gap: 20px; padding: 11px 14px; color: white; background: #7962c7; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; box-shadow: 0 6px 18px rgba(110,87,190,.25); }
-.guide-primary:hover { background: #6650b7; }
+.guide-primary { border: 0; border-radius: 10px; display: inline-flex; align-items: center; gap: 20px; padding: 11px 14px; color: white; background: #5a45ad; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; box-shadow: 0 6px 18px rgba(110,87,190,.25); }
+.guide-primary:hover { background: #4a378f; }
 .guide-hero-art { flex: 1; position: relative; min-width: 220px; }
 .guide-art-orbit { position: absolute; border: 1px solid rgba(157,137,209,.25); border-radius: 50%; top: 50%; left: 50%; transform: translate(-50%,-50%); }
 .orbit-one { width: 205px; height: 205px; }.orbit-two { width: 280px; height: 280px; }
@@ -619,8 +633,10 @@ html[data-theme="dark"] .guide-hero { background: linear-gradient(118deg,#392c3a
 .guide-section-heading > button, .guide-note button, .guide-doc-footer button { border: 0; background: transparent; color: var(--guide-violet); display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .guide-steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 .guide-steps > div { background: var(--guide-paper); border: 1px solid var(--guide-line); border-radius: 14px; padding: 18px 19px 15px; position: relative; }
-.guide-steps > div > span { float: right; color: #d9d7e8; font-size: 11px; font-weight: 850; letter-spacing: .06em; }
-.guide-steps > div > svg { color: #9a83dc; }
+html[data-theme="dark"] .guide-eyebrow, html[data-theme="dark"] .guide-kicker { color: #c9b4ff; }
+html[data-theme="dark"] .guide-steps > div > span { color: #aab6d2; }
+.guide-steps > div > span { float: right; color: #6f6a8c; font-size: 11px; font-weight: 850; letter-spacing: .06em; }
+.guide-steps > div > svg { color: #5a45ad; }
 .guide-steps h3 { margin: 12px 0 6px; font-size: 13px; }
 .guide-steps p { color: var(--guide-muted); font-size: 11px; line-height: 1.8; margin: 0; }
 .guide-cards { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }
@@ -628,17 +644,17 @@ html[data-theme="dark"] .guide-hero { background: linear-gradient(118deg,#392c3a
 .guide-card:hover { transform: translateY(-2px); border-color: #c7bbeb; box-shadow: 0 8px 22px rgba(96,84,146,.09); }
 .guide-card > svg { align-self: center; }
 .guide-card-icon { width: 39px; height: 39px; flex: none; border-radius: 11px; display: grid; place-items: center; color: #9275d6; background: #f1ebfc; }
-.tone-1 { color: #e88765; background: #fff0e8; }.tone-2 { color: #6b9ed9; background: #eaf2fe; }.tone-3 { color: #d77da7; background: #fbeaf2; }.tone-4 { color: #6aaf98; background: #e6f7f0; }
+.tone-1 { color: #a8410f; background: #fff0e8; }.tone-2 { color: #1f5da8; background: #eaf2fe; }.tone-3 { color: #a32f61; background: #fbeaf2; }.tone-4 { color: #1c6b52; background: #e6f7f0; }
 .guide-card-copy { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-.guide-card-copy small { color: var(--guide-violet); font-size: 10px; font-weight: 700; }
+.guide-card-copy small { color: var(--guide-violet); font-size:11px; font-weight: 700; }
 .guide-card-copy strong { font-size: 13px; color: var(--guide-ink); }
 .guide-card-copy > span { color: var(--guide-muted); font-size: 11px; line-height: 1.65; }
 .guide-note { display: flex; align-items: center; gap: 13px; margin-top: 30px; padding: 16px 18px; border: 1px solid rgba(205,178,113,.24); border-radius: 14px; background: rgba(255,244,217,.55); color: #a78040; }
 html[data-theme="dark"] .guide-note { background: rgba(116,90,44,.18); color: #e9c47f; }
 .guide-note > div { flex: 1; }.guide-note strong { color: var(--guide-ink); font-size: 12px; }.guide-note p { margin: 4px 0 0; color: var(--guide-muted); font-size: 11px; line-height: 1.6; }
-.guide-footer { margin-top: 30px; text-align: center; color: var(--guide-muted); font-size: 10px; }.guide-footer span { padding: 0 8px; }
+.guide-footer { margin-top: 30px; text-align: center; color: var(--guide-muted); font-size:11px; }.guide-footer span { padding: 0 8px; }
 .guide-document-wrap { max-width: 970px; padding: 27px 50px 70px; margin: 0 auto; }
-.guide-doc-meta { display: flex; gap: 10px; align-items: center; color: var(--guide-violet); font-size: 10px; font-weight: 800; letter-spacing: .07em; margin-bottom: 12px; }.guide-doc-meta span:first-child { padding: 5px 9px; background: rgba(130,108,217,.1); border-radius: 6px; letter-spacing: 0; }
+.guide-doc-meta { display: flex; gap: 10px; align-items: center; color: var(--guide-violet); font-size:11px; font-weight: 800; letter-spacing: .07em; margin-bottom: 12px; }.guide-doc-meta span:first-child { padding: 5px 9px; background: rgba(130,108,217,.1); border-radius: 6px; letter-spacing: 0; }
 .guide-article { background: var(--guide-paper); border: 1px solid var(--guide-line); border-radius: 18px; padding: 34px 42px 42px; font-size: 14px; line-height: 1.9; overflow-wrap: anywhere; }
 .guide-article h1,.guide-article h2,.guide-article h3,.guide-article h4 { color: var(--guide-ink); line-height: 1.45; scroll-margin-top: 16px; }
 .guide-article h1 { font-size: 27px; margin: 0 0 22px; letter-spacing: -.035em; }.guide-article h2 { font-size: 20px; border-bottom: 1px solid var(--guide-line); margin: 36px 0 14px; padding-bottom: 10px; }.guide-article h3 { font-size: 16px; margin-top: 26px; }.guide-article p, .guide-article li { color: var(--guide-ink); }.guide-article li + li { margin-top: 4px; }
@@ -649,4 +665,547 @@ html[data-theme="dark"] .guide-note { background: rgba(116,90,44,.18); color: #e
 @media(max-width: 800px) { .guide-topbar { padding: 0 16px; }.guide-top-label { display: none; }.guide-sidebar { width: 200px; }.guide-home { padding: 20px 25px 30px; }.guide-document-wrap { padding: 22px 25px 45px; }.guide-hero-copy { padding: 32px 26px; }.guide-hero-art { min-width: 150px; }.guide-art-orbit { display: none; }.guide-steps { grid-template-columns: 1fr; }.guide-steps > div { padding: 15px 17px; } }
 @media(max-width: 600px) { .guide-topbar { height: 60px; gap: 8px; }.guide-brand { font-size: 13px; }.guide-back { padding: 9px; font-size: 11px; }.guide-theme { width: 34px; height: 34px; }.guide-layout { flex-direction: column; }.guide-sidebar { width: 100%; padding: 9px 12px; border-right: 0; border-bottom: 1px solid var(--guide-line); overflow: visible; }.guide-sidebar-title,.guide-nav-label,.guide-sidebar-bottom,.guide-search { display: none; }.guide-sidebar > .guide-nav-item { display: none; }.guide-nav { overflow-x: auto; flex-direction: row; gap: 6px; }.guide-nav-item { width: auto; flex: none; min-height: 34px; white-space: nowrap; padding: 8px 10px; }.guide-nav-item svg { display: none !important; }.guide-home { padding: 17px 16px 30px; }.guide-document-wrap { padding: 18px 16px 40px; }.guide-article { padding: 24px 20px; }.guide-hero { min-height: 0; }.guide-hero-art { display: none; }.guide-cards { grid-template-columns: 1fr; }.guide-note { align-items: flex-start; flex-wrap: wrap; } }
 .guide-topbar .spacer { flex: 1; }
-.english-note { margin: 12px; padding: 9px 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 9px; font-size: 12px; line-height: 1.5; }
+
+/* A full viewport with its own scroller on mobile as well as desktop. */
+#root .app.is-guide { height:100vh; height:100dvh; min-height:0; overflow:hidden; }
+#root .app.is-guide .guide-page { flex:1; height:auto; min-height:0; }
+
+/* Studio の配色は v1.0.17 でファイル冒頭のテーマ変数へ統合した（ここにあった重複ブロックを削除）。 */
+.editor-shell .toolbar { border-bottom:1px solid #2b6fc1; box-shadow:0 2px 9px #2c69b629; color:#fff; }
+.editor-shell .toolbar .brand { font-weight:800; letter-spacing:-.015em; }
+.editor-shell .toolbar .brand small { color:#ffffff; -webkit-text-fill-color:#ffffff; }
+.editor-shell .toolbar .brand .logo { background:#fff; color:#3d83df; box-shadow:0 2px 8px #1b5ca63b; }
+/* ツールバー内のボタンは角丸だけを整え、色は --mode-* に任せる（v1.0.15 で固定色を撤去）。 */
+.editor-shell .toolbar .btn, .editor-shell .toolbar .edition-menu>summary { border-radius:9px; }
+.editor-shell .toolbar .sample-select { border-radius:9px; color:#25476e; background:#fff; border-color:#c3d9f5; }
+.editor-shell .panel { border-radius:13px; backdrop-filter:none; -webkit-backdrop-filter:none; }
+.editor-shell .panel-title { background:var(--panel-solid); }
+.editor-shell .seg { border-radius:9px; }
+.editor-shell .tabs { border-radius:11px; background:var(--seg-bg); }
+.editor-shell .tab { border-radius:8px; }
+.editor-shell .blockly-toolbar .btn.primary { background:var(--scratch-looks); box-shadow:none; }
+.editor-shell .scratch-player { border-color:var(--border-strong); }
+html[data-theme="dark"] .editor-shell .toolbar .sample-select { background:#1b2d46; color:#f0f5ff; border-color:#7193bc; }
+html[data-theme="dark"] .editor-shell .toolbar .brand small { color:#d5e6fc; -webkit-text-fill-color:#d5e6fc; }
+/* Guide uses the same blue family while retaining comfortable reading contrast. */
+.guide-page { --guide-paper:#fff; --guide-line:#dce7f3; --guide-ink:#253b5b; --guide-muted:#4e6480; --guide-violet:#2b5da8; --guide-surface:#f3f7fd; background:#eff5fc; }
+html[data-theme="dark"] .guide-page { --guide-paper:#171b2e; --guide-line:#344c69; --guide-ink:#e7effa; --guide-muted:#b0c1d9; --guide-violet:#98c2ff; --guide-surface:#21334d; background:#111e31; }
+.guide-topbar { background:var(--mode-toolbar-b); border-color:var(--mode-toolbar-edge); }
+.guide-topbar .guide-brand, .guide-topbar .guide-brand b, .guide-topbar .guide-top-label { color:#fff; }
+.guide-topbar .guide-logo { background:#fff; color:var(--mode-toolbar-b); box-shadow:none; }
+.guide-topbar .guide-theme, .guide-topbar .guide-back { color:#fff; background:var(--mode-toolbar-a); border-color:#ffffff80; }
+.guide-topbar .guide-theme:hover, .guide-topbar .guide-back:hover { background:#245fae; }
+.guide-primary { background:var(--mode-toolbar-b); }.guide-primary:hover { background:var(--mode-toolbar-edge); }
+html[data-theme="dark"] .editor-shell .tabs .ai-tab:not(.active) { color:#cbc2ff; }
+.guide-topbar button:focus-visible { outline:3px solid #ffcd66; outline-offset:2px; }
+@media(max-width:380px) {
+  .guide-topbar { padding:0 9px; gap:5px; }
+  .guide-topbar .guide-brand { font-size:11px; gap:6px; }
+  .guide-topbar .guide-logo { width:32px; height:32px; }
+  .guide-topbar .guide-back { padding:7px; gap:4px; font-size:11px; white-space:nowrap; }
+  .guide-topbar .guide-theme { width:30px; height:30px; flex:none; }
+}
+
+/* ============================================================
+   カラーモード（配色）
+   data-theme  = 明るさ（light / dark）
+   data-palette = 色味（standard / scratch / pastel / contrast）
+   Studio は次の --mode-* を参照するので、モードを足すときはここに 1 組追加する。
+   白文字を載せる色は、すべて 4.5:1 以上（WCAG AA）に調整済み。
+   ============================================================ */
+html[data-palette="standard"] {
+  --mode-primary: #394c66;        /* 白文字 8.75:1 */
+  --mode-primary-strong: #2f4055;
+  --mode-primary-edge: #28374a;
+  --mode-toolbar-a: #4a617f;
+  --mode-toolbar-b: #394c66;
+  --mode-toolbar-edge: #2b3a4e;
+  --mode-surface: #f4f6f9;
+  --mode-glow-a: rgba(90, 120, 170, 0.14);
+  --mode-glow-b: rgba(120, 140, 170, 0.10);
+  --mode-tint: rgba(57, 76, 102, 0.10);
+  --mode-ring: #b45309;
+}
+html[data-palette="scratch"] {
+  --mode-primary: #2f6ec4;        /* 白文字 5.06:1 */
+  --mode-primary-strong: #2b62b0;
+  --mode-primary-edge: #245a9e;
+  --mode-toolbar-a: #3374bf;   /* 白文字 4.78:1 */
+  --mode-toolbar-b: #2f6ec4;
+  --mode-toolbar-edge: #245a9e;
+  --mode-surface: #eef4ff;
+  --mode-glow-a: rgba(76, 151, 255, 0.16);
+  --mode-glow-b: rgba(255, 191, 0, 0.16);
+  --mode-tint: rgba(76, 151, 255, 0.10);
+  --mode-ring: #b45309;
+}
+html[data-palette="pastel"] {
+  --mode-primary: #6b5aa8;        /* 白文字 5.75:1 */
+  --mode-primary-strong: #5f4f99;
+  --mode-primary-edge: #57478c;
+  --mode-toolbar-a: #7a68bd;   /* 白文字 4.62:1 */
+  --mode-toolbar-b: #6b5aa8;
+  --mode-toolbar-edge: #57478c;
+  --mode-surface: #f7f4ff;
+  --mode-glow-a: rgba(160, 135, 235, 0.18);
+  --mode-glow-b: rgba(255, 170, 210, 0.16);
+  --mode-tint: rgba(107, 90, 168, 0.10);
+  --mode-ring: #b45309;
+}
+html[data-palette="contrast"] {
+  --mode-primary: #101c30;        /* 白文字 17.06:1 */
+  --mode-primary-strong: #0b1424;
+  --mode-primary-edge: #08101c;
+  --mode-toolbar-a: #16243d;
+  --mode-toolbar-b: #101c30;
+  --mode-toolbar-edge: #060c16;
+  --mode-surface: #ffffff;
+  --mode-glow-a: rgba(0, 0, 0, 0.05);
+  --mode-glow-b: rgba(0, 0, 0, 0.03);
+  --mode-tint: rgba(16, 28, 48, 0.08);
+  --mode-ring: #b45309;
+  --text: #0b1220;
+  --muted: #33405a;
+  --border: rgba(0, 0, 0, 0.22);
+  --border-strong: rgba(0, 0, 0, 0.38);
+  --accent2: #101c30;
+}
+html[data-theme="dark"] { --mode-ring: #ffbf00; }
+html[data-theme="dark"] .editor-shell { --studio-ring: 3px solid #ffbf00; }
+html[data-theme="dark"][data-palette="standard"] {
+  --mode-toolbar-a: #3a4a63; --mode-toolbar-b: #28374a; --mode-toolbar-edge: #1b2635;
+  --mode-surface: #0f1420; --mode-glow-a: rgba(120, 150, 200, 0.14); --mode-glow-b: rgba(90, 110, 150, 0.10);
+  --mode-tint: rgba(160, 190, 235, 0.12);
+}
+html[data-theme="dark"][data-palette="scratch"] {
+  --mode-toolbar-a: #2b5c97; --mode-toolbar-b: #1f4674; --mode-toolbar-edge: #173354;
+  --mode-surface: #0e1526; --mode-glow-a: rgba(76, 151, 255, 0.20); --mode-glow-b: rgba(153, 102, 255, 0.16);
+  --mode-tint: rgba(120, 165, 255, 0.14);
+}
+html[data-theme="dark"][data-palette="pastel"] {
+  --mode-toolbar-a: #55477f; --mode-toolbar-b: #443a68; --mode-toolbar-edge: #332a50;
+  --mode-surface: #12101c; --mode-glow-a: rgba(160, 135, 235, 0.22); --mode-glow-b: rgba(255, 150, 200, 0.14);
+  --mode-tint: rgba(180, 160, 245, 0.16);
+}
+html[data-theme="dark"][data-palette="contrast"] {
+  /* 高コントラスト（夜）は純黒＋白枠。主色もトークンとして黒に揃える。 */
+  --mode-primary: #000000; --mode-primary-strong: #1a1a1a; --mode-primary-edge: #ffffff;
+  --mode-toolbar-a: #0b1220; --mode-toolbar-b: #000000; --mode-toolbar-edge: #ffffff;
+  --mode-surface: #000000; --mode-glow-a: rgba(255, 255, 255, 0.04); --mode-glow-b: rgba(255, 255, 255, 0.02);
+  --mode-tint: rgba(255, 255, 255, 0.10);
+  --text: #ffffff; --muted: #d3dcec; --border: rgba(255, 255, 255, 0.34); --border-strong: rgba(255, 255, 255, 0.55);
+  --accent2: #ffe066;
+}
+
+/* 既定値（属性が無い場合のフォールバック） */
+:root {
+  --mode-primary: #2f6ec4;
+  --mode-primary-strong: #2b62b0;
+  --mode-primary-edge: #245a9e;
+  --mode-toolbar-a: #3374bf;   /* 白文字 4.78:1 */
+  --mode-toolbar-b: #2f6ec4;
+  --mode-toolbar-edge: #245a9e;
+  --mode-surface: #eef4ff;
+  --mode-glow-a: rgba(76, 151, 255, 0.16);
+  --mode-glow-b: rgba(255, 191, 0, 0.16);
+  --mode-tint: rgba(76, 151, 255, 0.10);
+  --mode-ring: #b45309;
+}
+
+/* カラーモードのドロップダウン（ツールバー内） */
+.color-mode {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 8px 0 10px; min-height: 36px;
+  border-radius: var(--studio-radius-sm, 11px);
+  border: 1.5px solid #ffffff80; background: #ffffff;
+  color: #24405f; font-weight: 700; font-size: 12.5px;
+  box-shadow: 0 2px 0 rgba(20, 56, 108, 0.3);
+}
+.color-mode svg { flex: none; color: var(--mode-primary); }
+.color-mode select {
+  appearance: none; -webkit-appearance: none; border: none; background: transparent;
+  color: inherit; font: inherit; font-weight: 700; cursor: pointer;
+  padding: 8px 18px 8px 2px; max-width: 150px;
+  background-image: linear-gradient(45deg, transparent 50%, #4a617f 50%), linear-gradient(135deg, #4a617f 50%, transparent 50%);
+  background-position: calc(100% - 9px) 55%, calc(100% - 5px) 55%;
+  background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+.color-mode select:focus-visible { outline: 3px solid var(--mode-ring); outline-offset: 3px; border-radius: 6px; }
+html[data-theme="dark"] .color-mode { background: #16233a; border-color: #ffffff40; color: #eaf2ff; box-shadow: none; }
+html[data-theme="dark"] .color-mode select { background-image: linear-gradient(45deg, transparent 50%, #b8cbe6 50%), linear-gradient(135deg, #b8cbe6 50%, transparent 50%); }
+@media (max-width: 720px) { .color-mode select { max-width: 132px; } }
+
+/* ============================================================
+   v1.0.13 — Studio を Scratch の隣に置いても浮かない見た目へ
+   「子ども向けに崩す」のではなく、Scratch の色・角丸・押しやすさを
+   通常版の情報密度と可読性のまま取り入れる。
+   ============================================================ */
+.editor-shell {
+  /* Scratch のカテゴリ色をそのまま使う（ブロックの色と画面の色を一致させる） */
+  --scratch-looks: #6d47b8;   /* 白文字 6.47:1 */
+  --studio-radius: 16px;
+  --studio-radius-sm: 11px;
+  --studio-ring: 3px solid #b45309;   /* 明るい面で見える濃いアンバー */
+  --panel: rgba(255, 255, 255, 0.9);
+  --panel-solid: #ffffff;
+  --border: rgba(40, 70, 120, 0.12);
+  --border-strong: rgba(40, 70, 120, 0.22);
+  --text: #1f3352;
+  --muted: #5b708c;
+  --shadow: 0 8px 22px rgba(38, 78, 138, 0.10), 0 1px 3px rgba(38, 78, 138, 0.06);
+  --seg-bg: rgba(76, 151, 255, 0.10);
+  --seg-active: #ffffff;
+  --canvas-bg: #f4f8ff;
+  background:
+    radial-gradient(1100px 480px at 12% -12%, var(--mode-glow-a), transparent 70%),
+    radial-gradient(900px 420px at 96% 0%, var(--mode-glow-b), transparent 72%),
+    var(--mode-surface);
+  font-family: "Hiragino Maru Gothic ProN", "BIZ UDPGothic", "M PLUS Rounded 1c", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+}
+
+.editor-shell .main { gap: 14px; padding: 14px; }
+
+/* ---- ツールバー: Scratch の青い帯 ---- */
+.editor-shell .toolbar {
+  gap: 9px;
+  padding: 9px 16px;
+  background: linear-gradient(180deg, var(--mode-toolbar-a), var(--mode-toolbar-b));
+  border-bottom: 2px solid var(--mode-toolbar-edge);
+  box-shadow: 0 3px 0 rgba(16, 40, 70, 0.18);
+}
+.editor-shell .toolbar .brand .logo {
+  width: 40px; height: 40px; border-radius: 14px;
+  background: #ffffff;
+  color: var(--mode-primary);
+  box-shadow: 0 3px 0 rgba(24, 66, 130, 0.22);
+}
+.editor-shell .toolbar .brand .title {
+  font-size: 18px; font-weight: 800; letter-spacing: 0.02em;
+  background: none; -webkit-text-fill-color: #ffffff; color: #ffffff;
+  text-shadow: 0 1px 0 rgba(24, 66, 130, 0.25);
+}
+.editor-shell .toolbar .brand small { color: #ffffff; -webkit-text-fill-color: #ffffff; font-weight: 600; }
+
+/* ---- 押しやすいボタン（最小 36px、角丸 10px、押した手応え） ---- */
+.editor-shell .btn {
+  min-height: 36px;
+  padding: 8px 15px;
+  border-radius: var(--studio-radius-sm);
+  border: 1.5px solid #ffffff80;
+  background: var(--mode-primary);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 2px 0 rgba(20, 56, 108, 0.35);
+}
+.editor-shell .btn:hover { background: var(--mode-primary-strong); border-color: #ffffff; transform: translateY(-1px); }
+.editor-shell .btn:active { transform: translateY(1px); box-shadow: none; }
+.editor-shell .btn:focus-visible { outline: var(--studio-ring); outline-offset: 2px; }
+.editor-shell .toolbar .btn.primary {
+  background: #ffffff; color: var(--mode-primary); border-color: #ffffff;
+  box-shadow: 0 2px 0 var(--mode-primary-edge);
+}
+.editor-shell .toolbar .btn.primary:hover { background: #f0f7ff; filter: none; }
+.editor-shell select.sample-select {
+  min-height: 36px; border-radius: var(--studio-radius-sm);
+  border: 1.5px solid #c3d9f5; background: #fff; color: #24405f; font-weight: 600;
+}
+.editor-shell select.sample-select:focus-visible { outline: var(--studio-ring); outline-offset: 2px; }
+
+/* ---- パネル: 角丸カードを少し大きく、境界はやわらかく ---- */
+.editor-shell .panel {
+  border-radius: var(--studio-radius);
+  border: 1.5px solid var(--border);
+  background: var(--panel-solid);
+  box-shadow: var(--shadow);
+}
+.editor-shell .panel-title {
+  padding: 11px 15px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #33507a;
+  background: linear-gradient(180deg, #f7fbff, #ffffff);
+  border-bottom: 1.5px solid var(--border);
+}
+.editor-shell .tabs {
+  gap: 4px; padding: 5px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1.5px solid var(--border);
+  box-shadow: 0 2px 8px rgba(38, 78, 138, 0.06);
+}
+.editor-shell .tab {
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 8px 11px;
+  color: #52698a;
+  font-weight: 700;
+}
+.editor-shell .tab:hover { background: rgba(76, 151, 255, 0.12); color: #24486f; }
+.editor-shell .tab:focus-visible { outline: var(--studio-ring); outline-offset: 1px; }
+.editor-shell .tab.active { color: #ffffff; box-shadow: 0 2px 0 rgba(20, 56, 108, 0.25); background: var(--mode-primary); }
+/* タブごとに Scratch のカテゴリ色を割り当て、色で場所を覚えられるようにする */
+.editor-shell .tab.active:not(.ai-tab) { background: var(--mode-primary); }
+.editor-shell .tabs .tab.ai-tab.active { background: var(--scratch-looks); }
+.editor-shell .tabs .tab.ai-tab:not(.active) { color: #6a4bc4; }
+.editor-shell .tab .badge { font-weight: 800; }
+.editor-shell .tab-body { border-radius: var(--studio-radius); }
+
+/* ---- セグメント（コード / ブロック） ---- */
+.editor-shell .segmented {
+  border-radius: 12px;
+  background: var(--mode-tint);
+  padding: 4px;
+  gap: 4px;
+}
+.editor-shell .seg {
+  border-radius: 9px;
+  min-height: 32px;
+  font-weight: 700;
+  color: #47628a;
+}
+.editor-shell .seg.active { background: var(--mode-primary); color: #fff; box-shadow: 0 2px 0 var(--mode-primary-edge); }
+
+/* ---- 診断面の行間と押しやすさ ---- */
+/* 診断行は <button>（キーボードで移動できる）。ボタン既定の見た目は打ち消す。 */
+button.diag, .editor-shell button.diag {
+  display: flex; align-items: flex-start; gap: 9px; width: 100%; text-align: left;
+  font: inherit; color: inherit; cursor: pointer;
+}
+.editor-shell .diag { border-radius: 12px; padding: 11px 13px; border-width: 1.5px; }
+.editor-shell .diag:hover { box-shadow: 0 4px 14px rgba(38, 78, 138, 0.14); }
+
+/* ---- エディタとステージ周辺 ---- */
+.editor-shell .editor-shell-card, .editor-shell .scratch-player { border-radius: var(--studio-radius); }
+.editor-shell .statusbar { border-radius: 12px 12px 0 0; }
+
+/* ---- AI（チューター）パネルまわり ---- */
+.editor-shell .ai-title-icon { border-radius: 14px; background: linear-gradient(160deg, #9966ff, #4c97ff); }
+.editor-shell .ai-send {
+  min-height: 38px; border-radius: 12px;
+  background: var(--mode-primary-strong);
+  border: none; color: #fff; font-weight: 800;
+  box-shadow: 0 2px 0 var(--mode-primary-edge);
+}
+.editor-shell .ai-send:hover:not(:disabled) { background: var(--mode-primary); }
+.editor-shell .ai-send:focus-visible { outline: var(--studio-ring); outline-offset: 2px; }
+.editor-shell .ai-chip-row button {
+  min-height: 34px; border-radius: 999px;
+  border: 1.5px solid #cfe0f7; background: #f4f8ff; color: #2f5d92; font-weight: 700;
+}
+.editor-shell .ai-chip-row button:hover { background: #e8f1ff; border-color: #9dc4f2; }
+.editor-shell .ai-message-content { line-height: 1.75; }
+.editor-shell .ai-log { justify-content: flex-start; }
+.editor-shell .ai-welcome { margin: 0 auto; padding: 4px 0 8px; }
+.editor-shell .ai-welcome > span { width: 42px; height: 42px; margin-bottom: 8px; }
+.editor-shell .ai-welcome h3 { font-size: 15px; margin: 0 0 6px; }
+.editor-shell .ai-welcome p { font-size: 12px; line-height: 1.7; }
+.editor-shell .ai-chip-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+.editor-shell .ai-context-note {
+  flex: none; padding: 7px 16px; color: var(--muted); font-size: 11px;
+  border-top: 1px solid var(--border); background: var(--mode-tint);
+}
+
+/* ---- ダークテーマでも同じ「Scratch の隣」感を保つ ---- */
+html[data-theme="dark"] .editor-shell {
+  --panel: #1a2338;
+  --panel-solid: #1b2438;
+  --border: rgba(150, 180, 230, 0.18);
+  --border-strong: rgba(150, 180, 230, 0.3);
+  --text: #eaf0fb;
+  --muted: #a8b8d2;
+  --seg-bg: rgba(120, 165, 255, 0.14);
+  --canvas-bg: #121a2c;
+  background:
+    radial-gradient(1100px 480px at 12% -12%, var(--mode-glow-a), transparent 70%),
+    radial-gradient(900px 420px at 96% 0%, var(--mode-glow-b), transparent 72%),
+    var(--mode-surface);
+}
+html[data-theme="dark"] .editor-shell .panel { background: var(--panel-solid); }
+html[data-theme="dark"] .editor-shell .panel-title { background: linear-gradient(180deg, #22304a, #1b2438); color: #cfe0f8; }
+html[data-theme="dark"] .editor-shell .tabs { background: #1b2438; }
+/* 夜モードの非選択ラベルは AA(4.5:1) 以上にする（診断 N7・#22304a 上で 9 以上）。
+   選択中（.active）には当てない: 青地の上では薄い色だと 3.9 まで落ちる。 */
+html[data-theme="dark"] .editor-shell .seg:not(.active) { color: #d7e4f7; }
+html[data-theme="dark"] .editor-shell .tabs .tab:not(.active) { color: #d7e4f7; }
+html[data-theme="dark"] .editor-shell .tabs .tab.ai-tab:not(.active) { color: #cdc2ff; }
+html[data-theme="dark"] .editor-shell .segmented { background: #22304a; }
+html[data-theme="dark"] .editor-shell .ai-context-note { background: #16203300; background-color: #162033; color: #a8b8d2; }
+html[data-theme="dark"] .editor-shell .ai-chip-row button { background: #22304a; border-color: #3a5075; color: #cfe0f8; }
+html[data-theme="dark"] .editor-shell .toolbar { background: linear-gradient(180deg, var(--mode-toolbar-a), var(--mode-toolbar-b)); border-bottom-color: var(--mode-toolbar-edge); }
+
+/* 高コントラスト（昼）はエディタも白地・黒文字にして、画面全体でコントラストを揃える */
+/* 通常（標準・昼）は白いエディタ。落ち着いた濃紺のツールバーと対にして、
+   はじめて開く人が「ふつうのエディタ」と感じる見た目にする。 */
+html[data-palette="standard"]:not([data-theme="dark"]) .editor-shell {
+  --editor-bg: #ffffff;
+  --editor-bg2: #f7f9fc;
+  --editor-text: #1b2438;   /* 15.49:1 */
+  --editor-ln: #556080;     /* 6.23:1 */
+  --editor-gutter: rgba(27, 36, 56, 0.04);
+}
+html[data-palette="standard"]:not([data-theme="dark"]) .editor-shell textarea.code { caret-color: #1b2438; }
+html[data-palette="standard"]:not([data-theme="dark"]) .editor-shell textarea.code::selection { background: rgba(47, 110, 196, 0.18); }
+
+html[data-palette="contrast"]:not([data-theme="dark"]) .editor-shell {
+  --editor-bg: #ffffff;
+  --editor-bg2: #ffffff;
+  --editor-text: #0b1220;
+  --editor-ln: #4a5570;
+  --editor-gutter: rgba(0, 0, 0, 0.05);
+}
+html[data-palette="contrast"]:not([data-theme="dark"]) .editor-shell textarea.code { caret-color: #0b1220; }
+html[data-palette="contrast"]:not([data-theme="dark"]) .editor-shell textarea.code::selection { background: rgba(16, 28, 48, 0.22); }
+html[data-palette="contrast"]:not([data-theme="dark"]) .editor-shell .line-numbers div.current { color: #7a3d00; }
+
+/* 高コントラスト（夜）は純黒の面と白い枠で、境界をはっきりさせる */
+html[data-theme="dark"][data-palette="contrast"] .editor-shell { --panel-solid: #000000; --panel: #000000; --border: rgba(255,255,255,0.34); --border-strong: #ffffff; }
+html[data-theme="dark"][data-palette="contrast"] .editor-shell .panel { border-color: rgba(255, 255, 255, 0.45); }
+html[data-theme="dark"][data-palette="contrast"] .editor-shell .panel-title { background: #000000; color: #ffffff; border-bottom-color: rgba(255,255,255,0.45); }
+html[data-theme="dark"][data-palette="contrast"] .editor-shell .tabs { background: #000000; border-color: rgba(255,255,255,0.45); }
+html[data-theme="dark"][data-palette="contrast"] .editor-shell .tabs .tab:not(.active) { color: #e6ecf7; }
+html[data-theme="dark"][data-palette="contrast"] .editor-shell .toolbar .btn { background: #000000; border-color: #ffffff; color: #ffffff; }
+html[data-theme="dark"][data-palette="contrast"] .editor-shell .toolbar .btn.primary { background: #ffffff; color: #000000; }
+html[data-theme="dark"][data-palette="contrast"] .editor-shell .color-mode { background: #000000; border-color: #ffffff; color: #ffffff; }
+html[data-theme="dark"][data-palette="contrast"] .editor-shell .color-mode svg { color: #ffe066; }
+
+/* ---- キーボード操作の可視化（全体） ---- */
+.editor-shell button:focus-visible, .editor-shell [role="tab"]:focus-visible, .editor-shell textarea:focus-visible, .editor-shell input:focus-visible, .editor-shell select:focus-visible {
+  outline: var(--studio-ring);
+  box-shadow: 0 0 0 6px var(--focus-outer);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-shell *, .editor-shell *::before, .editor-shell *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+/* 画面の高さが足りないときは、説明の飾りより「質問の入口」を優先する。 */
+@media (max-height: 950px) {
+  .editor-shell .ai-welcome > span { display: none; }
+  .editor-shell .ai-welcome h3 { margin-top: 0; }
+  .editor-shell .ai-footer { display: none; }
+}
+@media (max-width: 640px) {
+  .editor-shell .btn { min-height: 40px; }
+  .editor-shell .tab { min-height: 38px; font-size: 12px; }
+}
+
+/* ============================================================
+   v1.0.18 — 診断 v1.0.17 の使用テストで見つかった穴
+   ============================================================ */
+
+/* エディタのキーボード案内（N4）。Tab 移動モードのときだけ出す。 */
+.editor-tab-mode {
+  position: absolute; top: 8px; right: 12px; z-index: 3;
+  padding: 3px 9px; border-radius: 999px; pointer-events: none;
+  background: var(--note-bg); color: var(--note-ink);
+  border: 1px solid var(--note-ink); font-size: 11px; font-weight: 800;
+}
+
+/* 置き換えの取り消し（N1）。ツールバーの直下に 1 段だけ出す。 */
+.undo-banner {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  padding: 9px 16px; background: var(--note-bg); color: var(--note-ink);
+  border-bottom: 1px solid var(--note-ink); font-size: 12.5px; font-weight: 700;
+}
+.undo-banner .btn { background: #fff; color: #7a4700; border-color: #e8c98f; font-weight: 800; }
+html[data-theme="dark"] .undo-banner .btn { background: #2b2415; color: #ffe0b0; border-color: #6b552c; }
+
+/* 端末の下書き削除（S11）。パネル見出しの右に小さく置く。 */
+.draft-status { color: var(--muted); font-size: 11px; font-weight: 700; }
+/* 見出し帯（青）の上に載るので、--muted では 1.0:1 まで落ちる。白＋半透明の下地にする。 */
+/* 見出し帯の下地は配色で変わる（明るい面／#22304a／黒）。下地に依存しない「不透明なチップ」にして、
+   どの配色でも文字色と背景色の組み合わせが固定になるようにする。 */
+.editor-shell .panel-title .draft-clear {
+  color: #1f3557; background: #ffffff; border: 1px solid #b9cbe6;
+  font-size: 11px; font-weight: 800; letter-spacing: 0;
+}
+.editor-shell .panel-title .draft-clear:hover:not(:disabled) { color: #43230b; background: #ffe0b3; border-color: #d9a253; }
+html[data-theme="dark"] .editor-shell .panel-title .draft-clear { color: #e8f0fa; background: #101c2e; border-color: #ffffff80; }
+html[data-theme="dark"] .editor-shell .panel-title .draft-clear:hover:not(:disabled) { color: #1a1206; background: #ffd9a0; border-color: #fff; }
+
+/* ブロックの「未反映」バッジ（N2）。 */
+.seg .badge { font-size: 11px; font-weight: 800; padding: 1px 6px; border-radius: 999px; }
+.seg .badge.warn { background: var(--note-bg); color: var(--note-ink); border: 1px solid var(--note-ink); }
+
+/* 診断行のボタン化に伴うフォーカス（N6） */
+button.diag:focus-visible { outline-offset: 1px; }
+button.diag:hover { background: var(--canvas-bg); }
+
+/* 読み上げ専用（Education でも効くように、ここでも定義しておく） */
+.education .sr-only, .sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* ステージは 4:3 を保ったまま、使える幅に合わせて拡縮する（N10）。 */
+.scratch-player-stage {
+  width: min(100%, calc(42vh * 4 / 3));
+  aspect-ratio: 4 / 3;
+  max-height: none;
+  margin-inline: auto;
+}
+
+/* 診断が多いときの「ほかに N 件」（N19）。 */
+.diag-more {
+  margin-top: 8px; padding: 9px 12px; border-radius: 10px;
+  background: var(--seg-bg); color: var(--text); font-size: 11px; font-weight: 800; text-align: center;
+}
+
+/* ============================================================
+   v1.0.19 — 狭い画面の詰まり（診断 v1.0.18 の A1・A2・A3・B3）
+   ============================================================ */
+
+/* A3: 「コード／ブロック」は 1 行に保つ（1 文字ずつの縦折り返しをさせない） */
+.seg { white-space: nowrap; }
+.segmented { max-width: 100%; flex: none; }
+.seg-label { white-space: nowrap; }
+.seg .badge { white-space: nowrap; }
+
+/* A2: 保存状態と削除ボタンは折り返しても切れないようにする */
+.panel-title { flex-wrap: wrap; row-gap: 6px; }
+.draft-status { display: inline-flex; align-items: center; gap: 4px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-status-icon { flex: none; color: var(--ok); }
+.panel-title .draft-clear { flex: none; margin-left: auto; white-space: nowrap; }
+.draft-clear .label-short { display: none; }
+
+/* B3: 「元に戻す」は本文を押し下げない下部トーストにする */
+.undo-banner {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  z-index: 60; width: max-content; max-width: min(560px, calc(100vw - 24px));
+  border: 1px solid var(--note-ink); border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(20, 40, 80, 0.28);
+}
+
+@media (max-width: 640px) {
+  /* A1: ツールバーを詰める。ラベルはアイコンに置き換え（読み上げ名は aria-label）、
+     行の高さも 40 → 34px にして、コード欄の見える高さを確保する。 */
+  .toolbar { padding: 6px 10px; gap: 5px 6px; }
+  .toolbar .brand { margin-right: 2px; }
+  .toolbar .brand > div:last-child { display: none; }
+  .toolbar .brand .logo { width: 32px; height: 32px; }
+  .toolbar .btn-label { display: none; }
+  .toolbar .btn { padding: 7px 9px; }
+  .toolbar .edition-menu > summary { padding: 6px 9px; }
+  .toolbar .color-mode { gap: 0; padding: 2px 6px; }
+  .toolbar .color-mode > svg { display: none; }
+  .toolbar .color-mode select { max-width: 92px; }
+  .toolbar .sample-select { margin-left: auto; max-width: 128px; padding: 6px 8px; }
+}
+@media (max-width: 520px) {
+  .draft-clear .label-full { display: none; }
+  .draft-clear .label-short { display: inline; }
+  .draft-status .draft-status-label { display: none; }
+  .seg { padding: 6px 11px; }
+}
+
+@media (max-width: 380px) {
+  /* P6: 320 px でも 2 段に収める。ロゴは小さく、余白と色モードを詰める。 */
+  .toolbar { padding: 6px 8px; gap: 4px 5px; }
+  .toolbar .brand { margin-right: 0; }
+  .toolbar .brand .logo { width: 26px; height: 26px; }
+  .toolbar .brand .logo svg { width: 16px; height: 16px; }
+  .toolbar .btn { padding: 7px 7px; }
+  .toolbar .color-mode { padding: 2px 3px; }
+  .toolbar .color-mode select { max-width: 62px; }
+  .toolbar .sample-select { max-width: 112px; }
+}

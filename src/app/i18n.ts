@@ -15,7 +15,12 @@ export const sampleDescription: Record<string, string> = {
 
 /** Translate only fixed sample literals and comments, never user-entered code. */
 export function localizeSample(code: string): string {
-  if (!EN) return code;
+  return localizeSampleFor(code, EN);
+}
+
+/** 言語を明示して固定サンプルを翻訳する（テストとサーバー別ビルド用）。 */
+export function localizeSampleFor(code: string, english: boolean): string {
+  if (!english) return code;
   const replacements: [string, string][] = [
     ['こんにちは ScratchPy!', 'Hello ScratchPy!'],
     ['最初の一歩: 旗クリックで動き回って、クリックで得点!', 'First steps: click the flag to move, and click the sprite to score!'],
@@ -25,6 +30,7 @@ export function localizeSample(code: string): string {
     ['潜水艦さがし', 'Find the Submarine'], ['マウスで海を探して、隠れた潜水艦を見つけよう', 'Search the ocean with your mouse to find the hidden submarines'],
     ['何隻見つける? (1-5)', 'How many submarines? (1-5)'], ['見つけた! ', 'Found: '], ['全部見つけた! すごい!', 'You found them all!'],
   ];
-  for (const [ja, en] of replacements) code = code.split(ja).join(en);
+  // 長いパターンを先に適用する。短い '見つけた! ' が先に走ると長い文が壊れる。
+  for (const [ja, en] of [...replacements].sort((a, b) => b[0].length - a[0].length)) code = code.split(ja).join(en);
   return code;
 }

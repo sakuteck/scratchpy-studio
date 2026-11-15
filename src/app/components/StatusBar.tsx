@@ -9,18 +9,20 @@ interface Props {
   assetStore: AssetStore;
   errors: number;
   warnings: number;
+  assetsUnavailable?: boolean;
 }
 
-export default function StatusBar({ analysis, cursor, fileName, assetStore, errors, warnings }: Props) {
+export default function StatusBar({ analysis, cursor, fileName, assetStore, errors, warnings, assetsUnavailable = false }: Props) {
   const s = analysis?.stats;
-  const state = errors > 0 ? 'err' : warnings > 0 ? 'warn' : 'ok';
-  const stateLabel = errors > 0 ? (EN ? `${errors} errors` : `${errors} 件のエラー`) : warnings > 0 ? (EN ? `${warnings} warnings` : `${warnings} 件の警告`) : t('問題なし', 'No issues');
+  const state = errors > 0 ? 'err' : (warnings > 0 || assetsUnavailable) ? 'warn' : 'ok';
+  const stateLabel = errors > 0 ? (EN ? `${errors} errors` : `${errors} 件のエラー`) : warnings > 0 ? (EN ? `${warnings} warnings` : `${warnings} 件の警告`) : assetsUnavailable ? t('アセット未復元', 'Assets not restored') : t('問題なし', 'No issues');
   const assets = assetStore.costumes.size + assetStore.sounds.size;
   return (
     <div className="statusbar">
       <span>
         <span className={`dot ${state}`} />
         <b>{stateLabel}</b>
+        {assetsUnavailable && (errors > 0 || warnings > 0) && <b> / {t('アセット未復元', 'Assets not restored')}</b>}
       </span>
       {s && (
         <span>

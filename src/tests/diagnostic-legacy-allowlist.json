@@ -1,0 +1,9 @@
+[
+  "src/core/api.ts | object.message | `[構造検証] ${v.path}: ${v.message}`",
+  "src/core/lang/parser.ts | object.message | e.message",
+  "src/core/lang/typechecker.ts | object.spread | diagnosticFields(message, 'warn')",
+  "src/core/lang/typechecker.ts | object.spread | diagnosticFields(message, code)",
+  "src/core/sb3/exporter.ts | object.spread | diagnosticFields(message, 'export')",
+  "src/core/sb3/importer.ts | this.notes.push | d.message",
+  "src/core/sb3/validate.ts | object.spread | diagnosticFields(message, 'validation')"
+]

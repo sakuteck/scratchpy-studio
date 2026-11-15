@@ -1,9 +1,11 @@
 /* Runs in an opaque-origin, script-only sandbox. No keys or parent DOM access. */
 (() => {
+  // 親ページのオリジン。sandbox で不透明オリジンになるため、referrer から推定して送受信の相手を限定する。
+  const parentOrigin = (() => { try { return document.referrer ? new URL(document.referrer).origin : null; } catch { return null; } })();
   let instance = null;
   let enginePromise = null;
   let busy = false;
-  function report(type, detail) { parent.postMessage({source:'scratchpy-runner',type,detail}, '*'); }
+  function report(type, detail) { parent.postMessage({source:'scratchpy-runner',type,detail}, parentOrigin || '*'); }
   function engine(url) {
     if (enginePromise) return enginePromise;
     enginePromise = new Promise((resolve,reject) => {
@@ -17,6 +19,8 @@
   }
   window.addEventListener('message', async event => {
     if (event.source !== parent || !event.data || event.data.source !== 'scratchpy-parent') return;
+    // 推定できた場合は親のオリジンを必須にする（第三者ページからの駆動を拒否）。
+    if (parentOrigin && event.origin !== parentOrigin) return;
     const {type} = event.data;
     if (type === 'stop') { if (instance) instance.stopAll(); report('stopped'); return; }
     if (type !== 'run' || busy) return;
